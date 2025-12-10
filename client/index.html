@@ -52,6 +52,10 @@
             RESPONSES: 'se_responses', MANUAL_CAPTURES: 'se_manual_captures'
         };
 
+        // CONFIGURATION
+        // For Production (Vercel), replace this with your deployed backend URL (e.g., https://my-backend.onrender.com)
+        const SERVER_URL = 'http://localhost:5000';
+
         // IndexedDB for Large Video Storage
         window.VideoDB = {
             dbName: 'ProctoringDB',
@@ -1753,7 +1757,7 @@
             // WebRTC Signaling Logic
             useEffect(() => {
                 // Initialize Socket
-                socketRef.current = io('http://localhost:5000');
+                socketRef.current = io(SERVER_URL);
                 const socket = socketRef.current;
                 const roomId = batch.id;
 
@@ -4165,7 +4169,7 @@
                 if (examMode !== 'VivaLive') return;
 
                 // Initialize Socket
-                socketRef.current = io('http://localhost:5000');
+                socketRef.current = io(SERVER_URL);
                 const socket = socketRef.current;
                 const roomId = user.batchId;
 
