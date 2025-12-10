@@ -96,6 +96,60 @@
 
         window.Utils = {
             generateId: () => 'id_' + Math.random().toString(36).substr(2, 9) + Date.now(),
+
+            // CLOUD SYNC FUNCTIONS
+            uploadToCloud: async () => {
+                const MAPPING = {
+                    [DB_KEYS.BATCHES]: 'batches', [DB_KEYS.STUDENTS]: 'students',
+                    [DB_KEYS.QP]: 'qps', [DB_KEYS.NOS]: 'nos', [DB_KEYS.PC]: 'pcs',
+                    [DB_KEYS.SSC]: 'ssc', [DB_KEYS.RESPONSES]: 'responses'
+                };
+                let success = 0;
+                const statusBtn = document.getElementById('sync-status-text');
+                if (statusBtn) statusBtn.innerText = "Uploading...";
+
+                for (const [key, route] of Object.entries(MAPPING)) {
+                    try {
+                        const data = localStorage.getItem(key);
+                        if (data) {
+                            await fetch(`${SERVER_URL}/api/sync/${route}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: data
+                            });
+                            success++;
+                        }
+                    } catch (e) { console.error(`Upload error ${route}`, e); }
+                }
+                alert(`Uploaded ${success} categories to Cloud!`);
+                if (statusBtn) statusBtn.innerText = "Synced";
+            },
+
+            downloadFromCloud: async () => {
+                const MAPPING = {
+                    'batches': DB_KEYS.BATCHES, 'students': DB_KEYS.STUDENTS,
+                    'qps': DB_KEYS.QP, 'nos': DB_KEYS.NOS, 'pcs': DB_KEYS.PC,
+                    'ssc': DB_KEYS.SSC, 'responses': DB_KEYS.RESPONSES
+                };
+                let success = 0;
+                const statusBtn = document.getElementById('sync-status-text');
+                if (statusBtn) statusBtn.innerText = "Downloading...";
+
+                for (const [route, key] of Object.entries(MAPPING)) {
+                    try {
+                        const res = await fetch(`${SERVER_URL}/api/${route}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            // Only overwrite if cloud has data, or explicit? user requested download, so overwrite.
+                            localStorage.setItem(key, JSON.stringify(data));
+                            success++;
+                        }
+                    } catch (e) { console.error(`Download error ${route}`, e); }
+                }
+                alert(`Downloaded ${success} categories from Cloud! Reloading...`);
+                window.location.reload();
+            },
+
             getSSC: () => JSON.parse(localStorage.getItem(DB_KEYS.SSC) || '[]'),
             saveSSC: (ssc) => { const list = window.Utils.getSSC(); list.push(ssc); localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list)); },
             deleteSSC: (id) => {
@@ -3874,6 +3928,17 @@
                                 <span className="font-medium text-gray-900 capitalize">{activeTab.replace(/([A-Z])/g, ' $1')}</span>
                             </div>
                             <div className="flex items-center gap-4">
+                                {/* CLOUD SYNC CONTROLS */}
+                                <div className="flex items-center gap-2 mr-2 border-r pr-4">
+                                    <span id="sync-status-text" className="text-xs text-gray-500 hidden md:inline-block">Sync:</span>
+                                    <button onClick={() => window.Utils.uploadToCloud()} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Upload Local Data to Cloud">
+                                        <Icons.Upload className="w-5 h-5" />
+                                    </button>
+                                    <button onClick={() => window.Utils.downloadFromCloud()} className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Download Data from Cloud">
+                                        <Icons.Download className="w-5 h-5" />
+                                    </button>
+                                </div>
+
                                 <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">A</div>
                                 <span className="text-sm font-medium">Administrator</span>
                             </div>
@@ -4907,6 +4972,17 @@
                             <div className="bg-indigo-600 text-white rounded p-1">N</div> NSXpertise
                         </div>
                         <div className="flex gap-4 items-center">
+                            {/* GLOBAL CLOUD SYNC */}
+                            <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border">
+                                <button onClick={() => window.Utils.uploadToCloud()} className="p-1 px-2 text-blue-600 hover:bg-blue-100 rounded text-xs font-bold flex items-center gap-1" title="Upload to Cloud">
+                                    <Icons.Upload className="w-4 h-4" /> Upload
+                                </button>
+                                <div className="w-px h-4 bg-gray-300"></div>
+                                <button onClick={() => window.Utils.downloadFromCloud()} className="p-1 px-2 text-green-600 hover:bg-green-100 rounded text-xs font-bold flex items-center gap-1" title="Download from Cloud">
+                                    <Icons.Download className="w-4 h-4" /> Download
+                                </button>
+                            </div>
+
                             <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase">{user.role}</span>
                             <button onClick={() => setUser(null)} className="text-gray-500 hover:text-red-600 text-sm">Logout</button>
                         </div>
