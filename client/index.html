@@ -108,20 +108,29 @@
                 const statusBtn = document.getElementById('sync-status-text');
                 if (statusBtn) statusBtn.innerText = "Uploading...";
 
+                const errors = [];
                 for (const [key, route] of Object.entries(MAPPING)) {
                     try {
                         const data = localStorage.getItem(key);
-                        if (data) {
-                            await fetch(`${SERVER_URL}/api/sync/${route}`, {
+                        if (data && data !== '[]') {
+                            const res = await fetch(`${SERVER_URL}/api/sync/${route}`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: data
                             });
+                            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
                             success++;
                         }
-                    } catch (e) { console.error(`Upload error ${route}`, e); }
+                    } catch (e) {
+                        console.error(`Upload error ${route}`, e);
+                        errors.push(`${route}: ${e.message}`);
+                    }
                 }
-                alert(`Uploaded ${success} categories to Cloud!`);
+                if (errors.length > 0) {
+                    alert(`Upload Finished with Errors:\n${errors.join('\n')}\n\nSuccess: ${success} categories.`);
+                } else {
+                    alert(`Successfully Uploaded ${success} categories to Cloud!`);
+                }
                 if (statusBtn) statusBtn.innerText = "Synced";
             },
 
