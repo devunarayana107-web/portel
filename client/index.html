@@ -4266,18 +4266,8 @@
             const [currentQ, setCurrentQ] = useState(0);
             const [answers, setAnswers] = useState({});
 
-            // Poll for Assessor "Admit" signal
-            useEffect(() => {
-                if (examMode !== 'VivaWait') return;
-                const checkAdmit = setInterval(() => {
-                    const activeId = localStorage.getItem(`viva_active_${user.batchId}`);
-                    if (activeId === user.id) {
-                        setExamMode('VivaLive'); // New mode for active call
-                        clearInterval(checkAdmit); // Stop polling
-                    }
-                }, 1000);
-                return () => clearInterval(checkAdmit);
-            }, [examMode, user.batchId, user.id]);
+            // Poll for Assessor "Admit" signal (Replaced by Socket.io in VivaWait)
+            // useEffect(() => { ... }, []);
 
             // AUTO-SYNC In Background (Every 60s)
             useEffect(() => {
@@ -4315,14 +4305,28 @@
             const peerRef = useRef(null);
 
             useEffect(() => {
-                if (examMode !== 'VivaLive') return;
+                if (examMode !== 'VivaLive' && examMode !== 'VivaWait') return;
 
                 // Initialize Socket
                 socketRef.current = io(SERVER_URL);
                 const socket = socketRef.current;
-                const roomId = user.batchId;
+                // Unique Room for 1-on-1: BatchID_StudentID
+                const roomId = `${user.batchId}_${user.id}`;
 
+                console.log("Student Joining Room:", roomId);
                 socket.emit('join-room', roomId, user.id); // Student joins
+
+                // Listen for Admit Signal (Assessor Joined)
+                socket.on('user-connected', (userId) => {
+                    // If we are waiting, and someone joins (Assessor), we are admitted?
+                    // Or explicit signal? 'user-connected' is enough proof Assessor is here.
+                    if (examMode === 'VivaWait') {
+                        console.log("Assessor Joined, Auto-Admitting...");
+                        setExamMode('VivaLive');
+                    }
+                });
+
+                if (examMode === 'VivaWait') return; // Don't setup Peer yet
 
                 // Initialize PeerConnection
                 peerRef.current = new RTCPeerConnection({
@@ -4355,10 +4359,7 @@
                 };
 
                 // Signaling
-                socket.on('user-connected', async (userId) => {
-                    console.log("Assessor Connected (or peer)", userId);
-                    // Usually Assessor initiates, but if collision, we handle politely.
-                });
+                // user-connected handled above for admit, typically Assessor initiates offer so we wait for signal
 
                 socket.on('signal', async (data) => {
                     if (!data.signal) return;
@@ -4380,6 +4381,8 @@
                     if (peerRef.current) peerRef.current.close();
                 };
             }, [examMode, user.batchId]);
+
+            // Cleanup Polling (Deleted)
 
 
             // No need for syncing effect that clears on null

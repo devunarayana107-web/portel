@@ -1,13 +1,19 @@
 
-// LIVE VIVA CONSOLE (SIMULATOR)
+// LIVE VIVA CONSOLE (SIMULATOR -> REAL WEBRTC)
 const LiveVivaConsole = ({ batch, student, onClose }) => {
-    const [stream, setStream] = useState(null);
+    const [stream, setStream] = useState(null); // Local Stream
+    const [remoteStream, setRemoteStream] = useState(null); // Remote Stream
     const [videoEnabled, setVideoEnabled] = useState(true);
     const [audioEnabled, setAudioEnabled] = useState(true);
     const [currentQIdx, setCurrentQIdx] = useState(0);
     const [marks, setMarks] = useState({});
     const [remarks, setRemarks] = useState('');
-    const videoRef = useRef(null);
+    const [connectionStatus, setConnectionStatus] = useState('Connecting...');
+
+    const videoRef = useRef(null); // Local
+    const remoteVideoRef = useRef(null); // Remote
+    const socketRef = useRef(null);
+    const peerRef = useRef(null);
 
     // Load QP (Viva or Practical)
     const allQPs = window.Utils.getQuestionPapers();
@@ -17,22 +23,89 @@ const LiveVivaConsole = ({ batch, student, onClose }) => {
     const questions = qp?.questions || [];
 
     useEffect(() => {
-        // Start Camera
+        // 1. Initialize Socket
+        socketRef.current = io(SERVER_URL);
+        const socket = socketRef.current;
+        // Unique Room for 1-on-1: BatchID_StudentID
+        const roomId = `${batch.id}_${student.id}`;
+
+        setConnectionStatus(`Joining Room: ${roomId}...`);
+        socket.emit('join-room', roomId, 'assessor');
+
+        // 2. Initialize PeerConnection
+        peerRef.current = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        const pc = peerRef.current;
+
+        // 3. Get Local Media
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(s => {
                 setStream(s);
                 if (videoRef.current) videoRef.current.srcObject = s;
+                // Add Tracks to Peer
+                s.getTracks().forEach(track => pc.addTrack(track, s));
             })
             .catch(err => alert("Camera Error: " + err.message));
 
+        // 4. Handle ICE Candidates
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('signal', { roomId, signal: { type: 'candidate', candidate: event.candidate } });
+            }
+        };
+
+        // 5. Handle Remote Stream
+        pc.ontrack = (event) => {
+            console.log("Remote Stream Received");
+            setRemoteStream(event.streams[0]);
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+            setConnectionStatus('Connected');
+        };
+
+        // 6. Signaling Handlers
+        socket.on('user-connected', async (userId) => {
+            console.log("Student Connected:", userId);
+            setConnectionStatus('Student Connected. Calling...');
+            // Assessor Initiates Offer
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('signal', { roomId, signal: { type: 'offer', sdp: offer } });
+        });
+
+        socket.on('signal', async (data) => {
+            if (!data.signal) return;
+            // Avoid self-signal if broadcasted back? (Socket.io room usually broadcasts to others, but good to check sender)
+            if (data.sender === socket.id) return;
+
+            if (data.signal.type === 'offer') {
+                // If student initiated (unlikely in this flow, but possible)
+                await pc.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('signal', { roomId, signal: { type: 'answer', sdp: answer } });
+            } else if (data.signal.type === 'answer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+            } else if (data.signal.type === 'candidate') {
+                await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+            }
+        });
+
+        // Cleanup
         return () => {
             if (stream) stream.getTracks().forEach(t => t.stop());
+            if (peerRef.current) peerRef.current.close();
+            if (socketRef.current) socketRef.current.disconnect();
         };
     }, []);
 
+    // Ensure remote video ref is attached when stream arrives
     useEffect(() => {
-        if (videoRef.current && stream) videoRef.current.srcObject = stream;
-    }, [stream, videoRef.current]);
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream, remoteVideoRef.current]);
+
 
     const toggleVideo = () => {
         if (stream) {
@@ -55,7 +128,7 @@ const LiveVivaConsole = ({ batch, student, onClose }) => {
             studentId: student.id,
             batchId: batch.id,
             examType: 'VIVA',
-            answers: {}, // Viva usually oral, no written answers stored here, maybe recordings
+            answers: {},
             assessorMarks: marks,
             assessorRemarks: remarks,
             totalScore: Object.values(marks).reduce((a, b) => a + parseFloat(b || 0), 0),
@@ -71,15 +144,32 @@ const LiveVivaConsole = ({ batch, student, onClose }) => {
     return (
         <div className="fixed inset-0 bg-gray-900 z-50 flex text-white font-sans">
             {/* Left: Video Feed */}
-            <div className="w-3/5 relative bg-black flex items-center justify-center">
-                <video ref={videoRef} autoPlay muted className="w-full h-full object-cover transform scale-x-[-1]" /> {/* Mirror effect */}
+            <div className="w-3/5 relative bg-black flex items-center justify-center group">
+
+                {/* REMOTE VIDEO (STUDENT) - MAIN */}
+                {remoteStream ? (
+                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
+                ) : (
+                    <div className="flex flex-col items-center text-gray-400 animate-pulse">
+                        <Icons.Loader className="w-12 h-12 mb-4" />
+                        <p>{connectionStatus}</p>
+                        <p className="text-xs mt-2">Waiting for student to join room...</p>
+                    </div>
+                )}
+
+                {/* SELF VIEW (PIP) */}
+                <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg border border-gray-600 overflow-hidden shadow-2xl">
+                    <video ref={videoRef} autoPlay muted className="w-full h-full object-cover transform scale-x-[-1]" />
+                    <div className="absolute bottom-1 left-2 text-xs font-bold text-white drop-shadow-md">You</div>
+                </div>
 
                 <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div> Live Consumer: {student.name}
+                    <span className={`w-2 h-2 rounded-full ${remoteStream ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    {remoteStream ? 'Live: ' + student.name : 'Disconnected'}
                 </div>
 
                 {/* Controls */}
-                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-4">
+                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={toggleAudio} className={`p-4 rounded-full ${audioEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'} transition-all`}>
                         {audioEnabled ? <Icons.Microphone className="w-6 h-6" /> : <Icons.MicrophoneOff className="w-6 h-6" />}
                     </button>
