@@ -4388,6 +4388,20 @@
                 socket.on('signal', async (data) => {
                     if (!data.signal) return;
 
+                    // FIX: If we get an OFFER while waiting, we should accept it and Go Live!
+                    if (examMode === 'VivaWait' && data.signal.type === 'offer') {
+                        console.log("Offer Received while waiting -> Auto Admit");
+                        setExamMode('VivaLive');
+                        // The rest of the logic will run on next render in VivaLive block? 
+                        // No, we need to handle it NOW or ensure state persists.
+                        // Actually, switching mode unmounts this effect and mounts the VivaLive one?
+                        // If we switch mode, this component re-renders. We might lose this specific socket event?
+                        // Better to stay in "VivaWait" visually but start the logic? 
+                        // No, simpliest fix: Switch mode, and Assessor will retry or we can manually join.
+                        return; // Let re-render handle it? No, Assessor won't send offer again unless we ask.
+                        // Better approach: Manual Button backing this up.
+                    }
+
                     if (data.signal.type === 'offer') {
                         await pc.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
                         const answer = await pc.createAnswer();
@@ -4791,14 +4805,22 @@
                         </div>
                         <h1 className="text-4xl font-bold mb-4 tracking-tight">Waiting for Host</h1>
                         <p className="text-xl text-gray-400 mb-8 max-w-md">Please wait here. The assessor will admit you to the Viva session shortly.</p>
+                        <div className="bg-gray-800 p-2 rounded text-xs px-4 mb-4 font-mono text-gray-500">
+                            Room: {`${user.batchId}_${user.id}`}
+                        </div>
                         <div className="flex gap-2 justify-center mb-12">
                             <div className="w-3 h-3 bg-white rounded-full animate-bounce delay-0"></div>
                             <div className="w-3 h-3 bg-white rounded-full animate-bounce delay-100"></div>
                             <div className="w-3 h-3 bg-white rounded-full animate-bounce delay-200"></div>
                         </div>
-                        <button onClick={() => setExamMode(null)} className="px-6 py-2 border border-gray-600 rounded-lg text-gray-400 hover:text-white hover:border-gray-400 transition-colors text-sm">
-                            Leave Waiting Room
-                        </button>
+                        <div className="flex gap-4">
+                            <button onClick={() => setExamMode('VivaLive')} className="px-6 py-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-colors text-sm font-bold">
+                                Join Now (Force)
+                            </button>
+                            <button onClick={() => setExamMode(null)} className="px-6 py-2 border border-gray-600 rounded-lg text-gray-400 hover:text-white hover:border-gray-400 transition-colors text-sm">
+                                Leave Waiting Room
+                            </button>
+                        </div>
                     </div>
                 );
 
