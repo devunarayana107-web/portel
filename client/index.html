@@ -296,7 +296,7 @@
             getStudentsByBatch: (batchId) => window.Utils.getStudents().filter(s => s.batchId === batchId),
             saveStudent: (student) => { const list = window.Utils.getStudents(); list.push(student); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
             deleteStudent: (id) => { let list = window.Utils.getStudents().filter(s => s.id !== id); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
-            authenticateStudent: (username, password) => window.Utils.getStudents().find(s => String(s.username).trim() === String(username).trim() && String(s.password).trim() === String(password).trim()),
+            authenticateStudent: (username, password) => window.Utils.getStudents().find(s => String(s.username).trim().toLowerCase() === String(username).trim().toLowerCase() && String(s.password).trim() === String(password).trim()),
             getQuestionPapers: () => JSON.parse(localStorage.getItem(DB_KEYS.QUESTION_PAPERS) || '[]'),
             saveQuestionPaper: (qp) => { const list = window.Utils.getQuestionPapers(); list.push(qp); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
             deleteQuestionPaper: (id) => { let list = window.Utils.getQuestionPapers().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
@@ -481,9 +481,14 @@
                                 <span>v2.0 (Production)</span>
                             </div>
                             {error && <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</p>}
-                            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all">
-                                Login as {role.charAt(0).toUpperCase() + role.slice(1)}
-                            </button>
+                            <div className="flex gap-2">
+                                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all">
+                                    Login as {role.charAt(0).toUpperCase() + role.slice(1)}
+                                </button>
+                                <button type="button" onClick={() => window.Utils.downloadFromCloud()} className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors" title="Sync Latest Data">
+                                    <Icons.Download className="w-5 h-5" />
+                                </button>
+                            </div>
                             <div className="text-center text-xs text-gray-400 mt-4"><p>Demo: admin/admin</p></div>
                         </form>
                     </div>
