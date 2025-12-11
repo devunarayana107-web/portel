@@ -439,7 +439,7 @@
                 setDebugInfo(prev => ({ ...prev, studentCount: count }));
 
                 // Server Check
-                fetch(`${SERVER_URL}/api/health`, { headers: { 'x-api-key': API_KEY } }) // Assuming a health endpoint or just root
+                fetch(`${SERVER_URL}/health`) // Public endpoint
                     .then(res => setDebugInfo(prev => ({ ...prev, serverStatus: res.ok ? 'Online' : 'Error' })))
                     .catch(() => setDebugInfo(prev => ({ ...prev, serverStatus: 'Unreachable' })));
             }, []);
@@ -512,11 +512,11 @@
                                 <div className="text-[10px] text-gray-500 text-left bg-gray-50 p-1 rounded border overflow-hidden max-h-16 overflow-y-auto">
                                     Users: {window.Utils.getStudents().map(s => `${s.username}(${s.password})`).join(', ') || 'None'}
                                 </div>
-                                <p className="text-red-600 font-bold bg-yellow-100 rounded px-2">v2.3 (USER LIST ENABLED)</p>
+                                <p className="text-red-600 font-bold bg-yellow-100 rounded px-2">v2.4 (SERVER PATCH)</p>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </div >
+                </div >
             );
         };
 
