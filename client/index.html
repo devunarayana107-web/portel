@@ -53,8 +53,9 @@
         };
 
         // CONFIGURATION
-        // For Production (Vercel), replace this with your deployed backend URL (e.g., https://my-backend.onrender.com)
+        // For Production (Vercel), replace this with your deployed backend URL
         const SERVER_URL = 'https://portel-backend.onrender.com';
+        const API_KEY = 'portel_secure_key_2025'; // Must match server
 
         // IndexedDB for Large Video Storage
         window.VideoDB = {
@@ -130,7 +131,10 @@
                                 // Perform upload
                                 const res = await fetch(`${SERVER_URL}/api/sync/${route}`, {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'x-api-key': API_KEY
+                                    },
                                     body: JSON.stringify(items)
                                 });
                                 // Save back sanitized data if we fixed anything
@@ -176,7 +180,9 @@
 
                 for (const [route, key] of Object.entries(MAPPING)) {
                     try {
-                        const res = await fetch(`${SERVER_URL}/api/${route}`);
+                        const res = await fetch(`${SERVER_URL}/api/${route}`, {
+                            headers: { 'x-api-key': API_KEY }
+                        });
                         if (res.ok) {
                             const data = await res.json();
                             // Only overwrite if cloud has data, or explicit? user requested download, so overwrite.

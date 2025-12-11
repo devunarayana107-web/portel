@@ -28,6 +28,22 @@ const io = new Server(httpServer, {
     }
 });
 
+// PRODUCTION SECURITY: API Key Middleware
+const API_KEY = process.env.API_KEY || 'portel_secure_key_2025';
+const authMiddleware = (req, res, next) => {
+    // Skip auth for simple GET (optional, but safer to protect everything)
+    // or allow public read? No, protect all data.
+    const clientKey = req.headers['x-api-key'];
+    if (clientKey && clientKey === API_KEY) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Unauthorized: Invalid API Key' });
+    }
+};
+
+// Apply Auth to API Routes
+app.use('/api', authMiddleware);
+
 // --- SIGNALING SERVER LOGIC ---
 const peers = {}; // tracking peers in rooms
 
