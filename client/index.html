@@ -118,7 +118,10 @@
                                 headers: { 'Content-Type': 'application/json' },
                                 body: data
                             });
-                            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+                            if (!res.ok) {
+                                const errText = await res.text();
+                                throw new Error(`${res.status} ${res.statusText}: ${errText}`);
+                            }
                             success++;
                         }
                     } catch (e) {
