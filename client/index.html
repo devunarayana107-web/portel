@@ -506,13 +506,7 @@
                             </div>
                             <div className="text-center text-xs text-gray-400 mt-4 space-y-1">
                                 <p>Demo: admin/admin</p>
-                                <div className="p-2 bg-gray-50 rounded border border-gray-100 flex justify-between">
-                                    <span>Server: <strong className={debugInfo.serverStatus === 'Online' ? 'text-green-500' : 'text-red-500'}>{debugInfo.serverStatus}</strong></span>
-                                </div>
-                                <div className="text-[10px] text-gray-500 text-left bg-gray-50 p-1 rounded border overflow-hidden max-h-16 overflow-y-auto">
-                                    Users: {window.Utils.getStudents().map(s => `${s.username}(${s.password})`).join(', ') || 'None'}
-                                </div>
-                                <p className="text-red-600 font-bold bg-yellow-100 rounded px-2">v2.4 (SERVER PATCH)</p>
+                                <p className="text-gray-400 text-[10px] mt-2">v2.5 (Production)</p>
                             </div>
                         </form>
                     </div >
