@@ -431,6 +431,18 @@
             const [username, setUsername] = useState('');
             const [password, setPassword] = useState('');
             const [error, setError] = useState('');
+            const [debugInfo, setDebugInfo] = useState({ studentCount: 0, serverStatus: 'Checking...' });
+
+            useEffect(() => {
+                // Initial Load Check
+                const count = window.Utils.getStudents().length;
+                setDebugInfo(prev => ({ ...prev, studentCount: count }));
+
+                // Server Check
+                fetch(`${SERVER_URL}/api/health`, { headers: { 'x-api-key': API_KEY } }) // Assuming a health endpoint or just root
+                    .then(res => setDebugInfo(prev => ({ ...prev, serverStatus: res.ok ? 'Online' : 'Error' })))
+                    .catch(() => setDebugInfo(prev => ({ ...prev, serverStatus: 'Unreachable' })));
+            }, []);
 
             const handleLogin = (e) => {
                 e.preventDefault();
@@ -485,11 +497,21 @@
                                 <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all">
                                     Login as {role.charAt(0).toUpperCase() + role.slice(1)}
                                 </button>
-                                <button type="button" onClick={() => window.Utils.downloadFromCloud()} className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors" title="Sync Latest Data">
+                                <button type="button" onClick={async () => {
+                                    await window.Utils.downloadFromCloud();
+                                    setDebugInfo(prev => ({ ...prev, studentCount: window.Utils.getStudents().length }));
+                                }} className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors" title="Sync Latest Data">
                                     <Icons.Download className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="text-center text-xs text-gray-400 mt-4"><p>Demo: admin/admin</p></div>
+                            <div className="text-center text-xs text-gray-400 mt-4 space-y-1">
+                                <p>Demo: admin/admin</p>
+                                <div className="p-2 bg-gray-50 rounded border border-gray-100 flex justify-between">
+                                    <span>Students Loaded: <strong>{debugInfo.studentCount}</strong></span>
+                                    <span>Server: <strong className={debugInfo.serverStatus === 'Online' ? 'text-green-500' : 'text-red-500'}>{debugInfo.serverStatus}</strong></span>
+                                </div>
+                                <p>v2.1 (Debug Mode)</p>
+                            </div>
                         </form>
                     </div>
                 </div>
