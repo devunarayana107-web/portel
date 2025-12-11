@@ -57,27 +57,122 @@ io.on('connection', (socket) => {
     });
 });
 
+// --- DATABASE ADAPTER PATTERN ---
+const { Pool } = require('pg');
 const sqlite3 = require('sqlite3').verbose();
 const { v4: uuidv4 } = require('uuid');
 
-// ... (previous imports)
+class DatabaseAdapter {
+    constructor() {
+        this.type = process.env.DATABASE_URL ? 'postgres' : 'sqlite';
+        console.log(`Initializing Database Adapter for: ${this.type}`);
 
-// Initialize Database
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) console.error("Database Error:", err);
-    else console.log("Connected to SQLite Database");
-});
+        if (this.type === 'postgres') {
+            this.pool = new Pool({
+                connectionString: process.env.DATABASE_URL,
+                ssl: { rejectUnauthorized: false } // Required for Render
+            });
+        } else {
+            this.db = new sqlite3.Database('./database.sqlite', (err) => {
+                if (err) console.error("Database Error:", err);
+                else console.log("Connected to SQLite Database");
+            });
+        }
+    }
 
-// Create Tables
-db.serialize(() => {
-    db.run("CREATE TABLE IF NOT EXISTS batches (id TEXT PRIMARY KEY, data TEXT)");
-    db.run("CREATE TABLE IF NOT EXISTS students (id TEXT PRIMARY KEY, batchId TEXT, data TEXT)"); // Data contains full JSON
-    db.run("CREATE TABLE IF NOT EXISTS qps (id TEXT PRIMARY KEY, sscId TEXT, data TEXT)");
-    db.run("CREATE TABLE IF NOT EXISTS nos (id TEXT PRIMARY KEY, qpId TEXT, data TEXT)");
-    db.run("CREATE TABLE IF NOT EXISTS pcs (id TEXT PRIMARY KEY, nosId TEXT, data TEXT)");
-    db.run("CREATE TABLE IF NOT EXISTS responses (id TEXT PRIMARY KEY, studentId TEXT, data TEXT)");
-    db.run("CREATE TABLE IF NOT EXISTS ssc (id TEXT PRIMARY KEY, data TEXT)");
-});
+    init() {
+        const tables = [
+            "batches", "students", "qps", "nos", "pcs", "responses", "ssc"
+        ];
+
+        // Define schemas
+        const schema = {
+            postgres: (table) => `CREATE TABLE IF NOT EXISTS ${table} (id TEXT PRIMARY KEY, data TEXT)`,
+            sqlite: (table) => `CREATE TABLE IF NOT EXISTS ${table} (id TEXT PRIMARY KEY, data TEXT)`
+        };
+
+        tables.forEach(table => {
+            if (this.type === 'postgres') {
+                this.pool.query(schema.postgres(table)).catch(err => console.error(`Error creating table ${table}:`, err));
+            } else {
+                this.db.run(schema.sqlite(table));
+            }
+        });
+    }
+
+    getAll(table, callback) {
+        if (this.type === 'postgres') {
+            this.pool.query(`SELECT data FROM ${table}`, (err, res) => {
+                if (err) return callback(err, null);
+                callback(null, res.rows);
+            });
+        } else {
+            this.db.all(`SELECT data FROM ${table}`, [], callback);
+        }
+    }
+
+    upsert(table, id, dataStr, callback) {
+        if (this.type === 'postgres') {
+            // Postgres UPSERT
+            const query = `
+                INSERT INTO ${table} (id, data) VALUES ($1, $2)
+                ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data
+            `;
+            this.pool.query(query, [id, dataStr], callback);
+        } else {
+            // SQLite UPSERT
+            this.db.run(`INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`, [id, dataStr], callback);
+        }
+    }
+
+    delete(table, id, callback) {
+        if (this.type === 'postgres') {
+            this.pool.query(`DELETE FROM ${table} WHERE id = $1`, [id], callback);
+        } else {
+            this.db.run(`DELETE FROM ${table} WHERE id = ?`, [id], callback);
+        }
+    }
+
+    sync(table, items, callback) {
+        if (this.type === 'postgres') {
+            // Transactional sync for Postgres
+            (async () => {
+                const client = await this.pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    await client.query(`DELETE FROM ${table}`);
+                    const query = `INSERT INTO ${table} (id, data) VALUES ($1, $2)`;
+                    for (const item of items) {
+                        await client.query(query, [item.id, JSON.stringify(item)]);
+                    }
+                    await client.query('COMMIT');
+                    callback(null);
+                } catch (e) {
+                    await client.query('ROLLBACK');
+                    callback(e);
+                } finally {
+                    client.release();
+                }
+            })();
+        } else {
+            // SQLite Sync
+            this.db.serialize(() => {
+                this.db.run(`DELETE FROM ${table}`);
+                const stmt = this.db.prepare(`INSERT INTO ${table} (id, data) VALUES (?, ?)`);
+                items.forEach(item => {
+                    stmt.run(item.id, JSON.stringify(item));
+                });
+                stmt.finalize((err) => {
+                    callback(err);
+                });
+            });
+        }
+    }
+}
+
+// Initialize Adapter
+const dbAdapter = new DatabaseAdapter();
+dbAdapter.init();
 
 // --- API ROUTES ---
 
@@ -85,7 +180,7 @@ db.serialize(() => {
 function createCRUDEndpoints(tableName, routeName) {
     // GET ALL
     app.get(`/api/${routeName}`, (req, res) => {
-        db.all(`SELECT data FROM ${tableName}`, [], (err, rows) => {
+        dbAdapter.getAll(tableName, (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             const items = rows.map(r => JSON.parse(r.data));
             res.json(items);
@@ -98,8 +193,7 @@ function createCRUDEndpoints(tableName, routeName) {
         const id = item.id;
         const dataStr = JSON.stringify(item);
 
-        // Simple Upsert logic
-        db.run(`INSERT OR REPLACE INTO ${tableName} (id, data) VALUES (?, ?)`, [id, dataStr], function (err) {
+        dbAdapter.upsert(tableName, id, dataStr, (err) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true, id: id });
         });
@@ -107,7 +201,7 @@ function createCRUDEndpoints(tableName, routeName) {
 
     // DELETE
     app.delete(`/api/${routeName}/:id`, (req, res) => {
-        db.run(`DELETE FROM ${tableName} WHERE id = ?`, [req.params.id], function (err) {
+        dbAdapter.delete(tableName, req.params.id, (err) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
         });
@@ -118,21 +212,12 @@ function createCRUDEndpoints(tableName, routeName) {
         const items = req.body;
         if (!Array.isArray(items)) return res.status(400).json({ error: "Expected array" });
 
-        db.serialize(() => {
-            db.run(`DELETE FROM ${tableName}`);
-            const stmt = db.prepare(`INSERT INTO ${tableName} (id, data) VALUES (?, ?)`);
-            items.forEach(item => {
-                stmt.run(item.id, JSON.stringify(item));
-            });
-            stmt.finalize();
+        dbAdapter.sync(tableName, items, (err) => {
+            if (err) return res.status(500).json({ error: err && err.message });
             res.json({ success: true, count: items.length });
         });
     });
 }
-
-// Special Handling for Foreign Keys if needed, but for now storing full JSON in 'data' column is easiest for migration
-// We might need separate columns for filtering (like batchId), but client does filtering mostly.
-// Actually, 'students' needs filtering by batchId server-side for performance later, but for now client-side filtering is OK for small scale.
 
 createCRUDEndpoints('batches', 'batches');
 createCRUDEndpoints('students', 'students');
