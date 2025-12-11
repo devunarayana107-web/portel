@@ -98,7 +98,7 @@
             generateId: () => 'id_' + Math.random().toString(36).substr(2, 9) + Date.now(),
 
             // CLOUD SYNC FUNCTIONS
-            uploadToCloud: async () => {
+            uploadToCloud: async (silent = false) => {
                 const MAPPING = {
                     [DB_KEYS.BATCHES]: 'batches', [DB_KEYS.STUDENTS]: 'students',
                     [DB_KEYS.QP]: 'qps', [DB_KEYS.NOS]: 'nos', [DB_KEYS.PC]: 'pcs',
@@ -113,7 +113,8 @@
                     try {
                         const dataStr = localStorage.getItem(key);
                         if (dataStr && dataStr !== '[]') {
-                            // Sanitization: Ensure all items have IDs
+                            // Sanitization & Upload Logic ...
+                            // (Simplified for brevity, existing logic maintained)
                             let items = JSON.parse(dataStr);
                             let modified = false;
 
@@ -147,13 +148,18 @@
                         }
                     } catch (e) {
                         console.error(`Upload error ${route}`, e);
-                        errors.push(`${route}: ${e.message}`);
+                        if (!silent) errors.push(`${route}: ${e.message}`);
                     }
                 }
-                if (errors.length > 0) {
-                    alert(`Upload Finished with Errors:\n${errors.join('\n')}\n\nSuccess: ${success} categories.`);
+
+                if (!silent) {
+                    if (errors.length > 0) {
+                        alert(`Upload Finished with Errors:\n${errors.join('\n')}\n\nSuccess: ${success} categories.`);
+                    } else {
+                        alert(`Successfully Uploaded ${success} categories to Cloud!`);
+                    }
                 } else {
-                    alert(`Successfully Uploaded ${success} categories to Cloud!`);
+                    console.log(`Auto-Sync Complete: ${success} categories uploaded.`);
                 }
                 if (statusBtn) statusBtn.innerText = "Synced";
             },
@@ -4241,6 +4247,20 @@
                 }, 1000);
                 return () => clearInterval(checkAdmit);
             }, [examMode, user.batchId, user.id]);
+
+            // AUTO-SYNC In Background (Every 60s)
+            useEffect(() => {
+                const autoSync = setInterval(() => {
+                    // Only sync if online
+                    if (navigator.onLine) {
+                        // Silent sync (no alerts)
+                        window.Utils.uploadToCloud(true);
+                    }
+                }, 60000); // 60 seconds
+
+                return () => clearInterval(autoSync);
+            }, []);
+
             const [timeLeft, setTimeLeft] = useState(0);
             const [webcamActive, setWebcamActive] = useState(false);
 
