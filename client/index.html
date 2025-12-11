@@ -507,10 +507,12 @@
                             <div className="text-center text-xs text-gray-400 mt-4 space-y-1">
                                 <p>Demo: admin/admin</p>
                                 <div className="p-2 bg-gray-50 rounded border border-gray-100 flex justify-between">
-                                    <span>Students Loaded: <strong>{debugInfo.studentCount}</strong></span>
                                     <span>Server: <strong className={debugInfo.serverStatus === 'Online' ? 'text-green-500' : 'text-red-500'}>{debugInfo.serverStatus}</strong></span>
                                 </div>
-                                <p className="text-red-600 font-bold bg-yellow-100 rounded px-2">v2.2 (LATEST BUILD)</p>
+                                <div className="text-[10px] text-gray-500 text-left bg-gray-50 p-1 rounded border overflow-hidden">
+                                    Users: {window.Utils.getStudents().map(s => s.username).join(', ') || 'None'}
+                                </div>
+                                <p className="text-red-600 font-bold bg-yellow-100 rounded px-2">v2.3 (USER LIST ENABLED)</p>
                             </div>
                         </form>
                     </div>
