@@ -248,6 +248,10 @@ createCRUDEndpoints('pcs', 'pcs');
 createCRUDEndpoints('responses', 'responses');
 createCRUDEndpoints('ssc', 'ssc');
 
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
 app.get('/', (req, res) => {
     res.send('Exam System API & Signaling Server Running');
 });
