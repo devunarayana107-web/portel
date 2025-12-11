@@ -145,180 +145,174 @@
                                 success++;
                             }
                         }
-                        if (!res.ok) {
-                            const errText = await res.text();
-                            throw new Error(`${res.status} ${res.statusText}: ${errText}`);
-                        }
-                        success++;
-                    }
                     } catch (e) {
-                    console.error(`Upload error ${route}`, e);
-                    errors.push(`${route}: ${e.message}`);
+                        console.error(`Upload error ${route}`, e);
+                        errors.push(`${route}: ${e.message}`);
+                    }
                 }
-            }
-                if(errors.length > 0) {
-            alert(`Upload Finished with Errors:\n${errors.join('\n')}\n\nSuccess: ${success} categories.`);
-        } else {
-            alert(`Successfully Uploaded ${success} categories to Cloud!`);
-        }
-        if (statusBtn) statusBtn.innerText = "Synced";
+                if (errors.length > 0) {
+                    alert(`Upload Finished with Errors:\n${errors.join('\n')}\n\nSuccess: ${success} categories.`);
+                } else {
+                    alert(`Successfully Uploaded ${success} categories to Cloud!`);
+                }
+                if (statusBtn) statusBtn.innerText = "Synced";
             },
 
-        downloadFromCloud: async () => {
-            const MAPPING = {
-                'batches': DB_KEYS.BATCHES, 'students': DB_KEYS.STUDENTS,
-                'qps': DB_KEYS.QP, 'nos': DB_KEYS.NOS, 'pcs': DB_KEYS.PC,
-                'ssc': DB_KEYS.SSC, 'responses': DB_KEYS.RESPONSES
-            };
-            let success = 0;
-            const statusBtn = document.getElementById('sync-status-text');
-            if (statusBtn) statusBtn.innerText = "Downloading...";
+            downloadFromCloud: async () => {
+                const MAPPING = {
+                    'batches': DB_KEYS.BATCHES, 'students': DB_KEYS.STUDENTS,
+                    'qps': DB_KEYS.QP, 'nos': DB_KEYS.NOS, 'pcs': DB_KEYS.PC,
+                    'ssc': DB_KEYS.SSC, 'responses': DB_KEYS.RESPONSES
+                };
+                let success = 0;
+                const statusBtn = document.getElementById('sync-status-text');
+                if (statusBtn) statusBtn.innerText = "Downloading...";
 
-            for (const [route, key] of Object.entries(MAPPING)) {
-                try {
-                    const res = await fetch(`${SERVER_URL}/api/${route}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        // Only overwrite if cloud has data, or explicit? user requested download, so overwrite.
-                        localStorage.setItem(key, JSON.stringify(data));
-                        success++;
-                    }
-                } catch (e) { console.error(`Download error ${route}`, e); }
-            }
-            alert(`Downloaded ${success} categories from Cloud! Reloading...`);
-            window.location.reload();
-        },
+                for (const [route, key] of Object.entries(MAPPING)) {
+                    try {
+                        const res = await fetch(`${SERVER_URL}/api/${route}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            // Only overwrite if cloud has data, or explicit? user requested download, so overwrite.
+                            localStorage.setItem(key, JSON.stringify(data));
+                            success++;
+                        }
+                    } catch (e) { console.error(`Download error ${route}`, e); }
+                }
+                alert(`Downloaded ${success} categories from Cloud! Reloading...`);
+                window.location.reload();
+            },
 
             getSSC: () => JSON.parse(localStorage.getItem(DB_KEYS.SSC) || '[]'),
-                saveSSC: (ssc) => { const list = window.Utils.getSSC(); list.push(ssc); localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list)); },
-                    deleteSSC: (id) => {
-                        // 1. Get SSC List and remove target
-                        let list = window.Utils.getSSC().filter(s => s.id !== id);
-                        localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list));
+            saveSSC: (ssc) => { const list = window.Utils.getSSC(); list.push(ssc); localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list)); },
+            deleteSSC: (id) => {
+                // 1. Get SSC List and remove target
+                let list = window.Utils.getSSC().filter(s => s.id !== id);
+                localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list));
 
-                        // 2. Cascading Delete: Find all QPs for this SSC
-                        const allQPs = window.Utils.getQPs();
-                        const sscQPs = allQPs.filter(q => q.sscId === id);
-                        const sscQPIds = sscQPs.map(q => q.id);
+                // 2. Cascading Delete: Find all QPs for this SSC
+                const allQPs = window.Utils.getQPs();
+                const sscQPs = allQPs.filter(q => q.sscId === id);
+                const sscQPIds = sscQPs.map(q => q.id);
 
-                        if (sscQPIds.length > 0) {
-                            // Remove QPs
-                            const remainingQPs = allQPs.filter(q => q.sscId !== id);
-                            localStorage.setItem(DB_KEYS.QP, JSON.stringify(remainingQPs));
+                if (sscQPIds.length > 0) {
+                    // Remove QPs
+                    const remainingQPs = allQPs.filter(q => q.sscId !== id);
+                    localStorage.setItem(DB_KEYS.QP, JSON.stringify(remainingQPs));
 
-                            // 3. Find NOS for these QPs
-                            const allNOS = window.Utils.getNOS();
-                            const qpNOS = allNOS.filter(n => sscQPIds.includes(n.qpId));
-                            const qpNOSIds = qpNOS.map(n => n.id);
+                    // 3. Find NOS for these QPs
+                    const allNOS = window.Utils.getNOS();
+                    const qpNOS = allNOS.filter(n => sscQPIds.includes(n.qpId));
+                    const qpNOSIds = qpNOS.map(n => n.id);
 
-                            if (qpNOSIds.length > 0) {
-                                // Remove NOS
-                                const remainingNOS = allNOS.filter(n => !sscQPIds.includes(n.qpId));
-                                localStorage.setItem(DB_KEYS.NOS, JSON.stringify(remainingNOS));
+                    if (qpNOSIds.length > 0) {
+                        // Remove NOS
+                        const remainingNOS = allNOS.filter(n => !sscQPIds.includes(n.qpId));
+                        localStorage.setItem(DB_KEYS.NOS, JSON.stringify(remainingNOS));
 
-                                // 4. Remove PCs for these NOS
-                                const allPCs = window.Utils.getPCs();
-                                const remainingPCs = allPCs.filter(p => !qpNOSIds.includes(p.nosId));
-                                localStorage.setItem(DB_KEYS.PC, JSON.stringify(remainingPCs));
-                            }
+                        // 4. Remove PCs for these NOS
+                        const allPCs = window.Utils.getPCs();
+                        const remainingPCs = allPCs.filter(p => !qpNOSIds.includes(p.nosId));
+                        localStorage.setItem(DB_KEYS.PC, JSON.stringify(remainingPCs));
+                    }
 
-                            // 5. Remove Batches logic (If batches are linked to these QPs/SSCs)
-                            // Checking BatchesTab filter logic earlier: it filters by Question Papers linked to SSC.
-                            // We should remove Batches that are effectively orphaned or strictly linked.
-                            // Since specific linking is complex (Batch -> Paper -> QP -> SSC), 
-                            // a safer "delete everything" approach for SSC is to find Batches linked to this SSC ID directly if such field exists,
-                            // OR simply warn user. But user asked "delete everything".
-                            // Most direct link: Question Papers. Batches link to Papers.
+                    // 5. Remove Batches logic (If batches are linked to these QPs/SSCs)
+                    // Checking BatchesTab filter logic earlier: it filters by Question Papers linked to SSC.
+                    // We should remove Batches that are effectively orphaned or strictly linked.
+                    // Since specific linking is complex (Batch -> Paper -> QP -> SSC), 
+                    // a safer "delete everything" approach for SSC is to find Batches linked to this SSC ID directly if such field exists,
+                    // OR simply warn user. But user asked "delete everything".
+                    // Most direct link: Question Papers. Batches link to Papers.
 
-                            // Remove Question Papers linked to this SSC
-                            const allPapers = window.Utils.getQuestionPapers();
-                            const sscPapers = allPapers.filter(p => p.sscId === id);
-                            const sscPaperIds = sscPapers.map(p => p.id);
+                    // Remove Question Papers linked to this SSC
+                    const allPapers = window.Utils.getQuestionPapers();
+                    const sscPapers = allPapers.filter(p => p.sscId === id);
+                    const sscPaperIds = sscPapers.map(p => p.id);
 
-                            if (sscPaperIds.length > 0) {
-                                const remainingPapers = allPapers.filter(p => p.sscId !== id);
-                                localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(remainingPapers));
+                    if (sscPaperIds.length > 0) {
+                        const remainingPapers = allPapers.filter(p => p.sscId !== id);
+                        localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(remainingPapers));
 
-                                // Remove Batches linked to these Papers
-                                const allBatches = window.Utils.getBatches();
-                                const batchesToDelete = allBatches.filter(b => sscPaperIds.includes(b.theoryPaperId) || sscPaperIds.includes(b.practicalPaperId));
-                                const batchIdsToDelete = batchesToDelete.map(b => b.id);
+                        // Remove Batches linked to these Papers
+                        const allBatches = window.Utils.getBatches();
+                        const batchesToDelete = allBatches.filter(b => sscPaperIds.includes(b.theoryPaperId) || sscPaperIds.includes(b.practicalPaperId));
+                        const batchIdsToDelete = batchesToDelete.map(b => b.id);
 
-                                if (batchIdsToDelete.length > 0) {
-                                    const remainingBatches = allBatches.filter(b => !batchIdsToDelete.includes(b.id));
-                                    localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(remainingBatches));
+                        if (batchIdsToDelete.length > 0) {
+                            const remainingBatches = allBatches.filter(b => !batchIdsToDelete.includes(b.id));
+                            localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(remainingBatches));
 
-                                    // Remove Students in these Batches
-                                    const allStudents = window.Utils.getStudents();
-                                    const remainingStudents = allStudents.filter(s => !batchIdsToDelete.includes(s.batchId));
-                                    localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(remainingStudents));
-                                }
-                            }
+                            // Remove Students in these Batches
+                            const allStudents = window.Utils.getStudents();
+                            const remainingStudents = allStudents.filter(s => !batchIdsToDelete.includes(s.batchId));
+                            localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(remainingStudents));
                         }
-                    },
-                        getQPs: () => JSON.parse(localStorage.getItem(DB_KEYS.QP) || '[]'),
-                            getQPsBySSC: (sscId) => window.Utils.getQPs().filter(q => q.sscId === sscId),
-                                saveQP: (qp) => { const list = window.Utils.getQPs(); list.push(qp); localStorage.setItem(DB_KEYS.QP, JSON.stringify(list)); },
-                                    deleteQP: (id) => { let list = window.Utils.getQPs().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QP, JSON.stringify(list)); },
-                                        getNOS: () => JSON.parse(localStorage.getItem(DB_KEYS.NOS) || '[]'),
-                                            getNOSByQP: (qpId) => window.Utils.getNOS().filter(n => n.qpId === qpId),
-                                                saveNOS: (nos) => { const list = window.Utils.getNOS(); list.push(nos); localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list)); },
-                                                    deleteNOS: (id) => { let list = window.Utils.getNOS().filter(n => n.id !== id); localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list)); },
-                                                        getPCs: () => JSON.parse(localStorage.getItem(DB_KEYS.PC) || '[]'),
-                                                            getPCsByNOS: (nosId) => window.Utils.getPCs().filter(p => p.nosId === nosId),
-                                                                savePC: (pc) => { const list = window.Utils.getPCs(); list.push(pc); localStorage.setItem(DB_KEYS.PC, JSON.stringify(list)); },
-                                                                    deletePC: (id) => { let list = window.Utils.getPCs().filter(p => p.id !== id); localStorage.setItem(DB_KEYS.PC, JSON.stringify(list)); },
-                                                                        getBatches: () => JSON.parse(localStorage.getItem(DB_KEYS.BATCHES) || '[]'),
-                                                                            saveBatch: (batch) => { const list = window.Utils.getBatches(); list.push(batch); localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list)); },
-                                                                                updateBatches: (batches) => localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(batches)),
-                                                                                    deleteBatch: (id) => {
-                                                                                        let list = window.Utils.getBatches().filter(b => b.id !== id);
-                                                                                        localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list));
-                                                                                        let students = window.Utils.getStudents().filter(s => s.batchId !== id);
-                                                                                        localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(students));
-                                                                                    },
-                                                                                        getStudents: () => JSON.parse(localStorage.getItem(DB_KEYS.STUDENTS) || '[]'),
-                                                                                            getStudentsByBatch: (batchId) => window.Utils.getStudents().filter(s => s.batchId === batchId),
-                                                                                                saveStudent: (student) => { const list = window.Utils.getStudents(); list.push(student); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
-                                                                                                    deleteStudent: (id) => { let list = window.Utils.getStudents().filter(s => s.id !== id); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
-                                                                                                        authenticateStudent: (username, password) => window.Utils.getStudents().find(s => String(s.username).trim() === String(username).trim() && String(s.password).trim() === String(password).trim()),
-                                                                                                            getQuestionPapers: () => JSON.parse(localStorage.getItem(DB_KEYS.QUESTION_PAPERS) || '[]'),
-                                                                                                                saveQuestionPaper: (qp) => { const list = window.Utils.getQuestionPapers(); list.push(qp); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
-                                                                                                                    deleteQuestionPaper: (id) => { let list = window.Utils.getQuestionPapers().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
-                                                                                                                        getResponses: () => JSON.parse(localStorage.getItem(DB_KEYS.RESPONSES) || '[]'),
-                                                                                                                            saveResponse: (response) => {
-                                                                                                                                const list = window.Utils.getResponses();
-                                                                                                                                const existing = list.findIndex(r => r.studentId === response.studentId && r.examType === response.examType);
-                                                                                                                                if (existing >= 0) {
-                                                                                                                                    const old = list[existing];
-                                                                                                                                    // Smart Merge: Append evidence if new exists
-                                                                                                                                    let newEvidence = old.evidence || [];
-                                                                                                                                    if (response.evidence) {
-                                                                                                                                        newEvidence = [...newEvidence, ...response.evidence];
-                                                                                                                                    }
-                                                                                                                                    list[existing] = { ...old, ...response, evidence: newEvidence };
-                                                                                                                                }
-                                                                                                                                else list.push(response);
-                                                                                                                                try {
-                                                                                                                                    localStorage.setItem(DB_KEYS.RESPONSES, JSON.stringify(list));
-                                                                                                                                } catch (e) {
-                                                                                                                                    console.error("Storage Full", e);
-                                                                                                                                    alert("Storage Full! Evidence may not be saved. Please contact Assessor.");
-                                                                                                                                }
-                                                                                                                            },
-                                                                                                                                authenticateAssessor: (username, password) => {
-                                                                                                                                    // Failsafe for testing: If default creds used, try to return the FIRST batch found, so data appears.
-                                                                                                                                    if (username === 'assessor' && password === 'password') {
-                                                                                                                                        const batches = window.Utils.getBatches();
-                                                                                                                                        if (batches.length > 0) return batches[0];
-                                                                                                                                        return { id: 'default_override', name: 'Default Batch', assessorUsername: 'assessor' };
-                                                                                                                                    }
+                    }
+                }
+            },
+            getQPs: () => JSON.parse(localStorage.getItem(DB_KEYS.QP) || '[]'),
+            getQPsBySSC: (sscId) => window.Utils.getQPs().filter(q => q.sscId === sscId),
+            saveQP: (qp) => { const list = window.Utils.getQPs(); list.push(qp); localStorage.setItem(DB_KEYS.QP, JSON.stringify(list)); },
+            deleteQP: (id) => { let list = window.Utils.getQPs().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QP, JSON.stringify(list)); },
+            getNOS: () => JSON.parse(localStorage.getItem(DB_KEYS.NOS) || '[]'),
+            getNOSByQP: (qpId) => window.Utils.getNOS().filter(n => n.qpId === qpId),
+            saveNOS: (nos) => { const list = window.Utils.getNOS(); list.push(nos); localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list)); },
+            deleteNOS: (id) => { let list = window.Utils.getNOS().filter(n => n.id !== id); localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list)); },
+            getPCs: () => JSON.parse(localStorage.getItem(DB_KEYS.PC) || '[]'),
+            getPCsByNOS: (nosId) => window.Utils.getPCs().filter(p => p.nosId === nosId),
+            savePC: (pc) => { const list = window.Utils.getPCs(); list.push(pc); localStorage.setItem(DB_KEYS.PC, JSON.stringify(list)); },
+            deletePC: (id) => { let list = window.Utils.getPCs().filter(p => p.id !== id); localStorage.setItem(DB_KEYS.PC, JSON.stringify(list)); },
+            getBatches: () => JSON.parse(localStorage.getItem(DB_KEYS.BATCHES) || '[]'),
+            saveBatch: (batch) => { const list = window.Utils.getBatches(); list.push(batch); localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list)); },
+            updateBatches: (batches) => localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(batches)),
+            deleteBatch: (id) => {
+                let list = window.Utils.getBatches().filter(b => b.id !== id);
+                localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list));
+                let students = window.Utils.getStudents().filter(s => s.batchId !== id);
+                localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(students));
+            },
+            getStudents: () => JSON.parse(localStorage.getItem(DB_KEYS.STUDENTS) || '[]'),
+            getStudentsByBatch: (batchId) => window.Utils.getStudents().filter(s => s.batchId === batchId),
+            saveStudent: (student) => { const list = window.Utils.getStudents(); list.push(student); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
+            deleteStudent: (id) => { let list = window.Utils.getStudents().filter(s => s.id !== id); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
+            authenticateStudent: (username, password) => window.Utils.getStudents().find(s => String(s.username).trim() === String(username).trim() && String(s.password).trim() === String(password).trim()),
+            getQuestionPapers: () => JSON.parse(localStorage.getItem(DB_KEYS.QUESTION_PAPERS) || '[]'),
+            saveQuestionPaper: (qp) => { const list = window.Utils.getQuestionPapers(); list.push(qp); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
+            deleteQuestionPaper: (id) => { let list = window.Utils.getQuestionPapers().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
+            getResponses: () => JSON.parse(localStorage.getItem(DB_KEYS.RESPONSES) || '[]'),
+            saveResponse: (response) => {
+                const list = window.Utils.getResponses();
+                const existing = list.findIndex(r => r.studentId === response.studentId && r.examType === response.examType);
+                if (existing >= 0) {
+                    const old = list[existing];
+                    // Smart Merge: Append evidence if new exists
+                    let newEvidence = old.evidence || [];
+                    if (response.evidence) {
+                        newEvidence = [...newEvidence, ...response.evidence];
+                    }
+                    list[existing] = { ...old, ...response, evidence: newEvidence };
+                }
+                else list.push(response);
+                try {
+                    localStorage.setItem(DB_KEYS.RESPONSES, JSON.stringify(list));
+                } catch (e) {
+                    console.error("Storage Full", e);
+                    alert("Storage Full! Evidence may not be saved. Please contact Assessor.");
+                }
+            },
+            authenticateAssessor: (username, password) => {
+                // Failsafe for testing: If default creds used, try to return the FIRST batch found, so data appears.
+                if (username === 'assessor' && password === 'password') {
+                    const batches = window.Utils.getBatches();
+                    if (batches.length > 0) return batches[0];
+                    return { id: 'default_override', name: 'Default Batch', assessorUsername: 'assessor' };
+                }
 
-                                                                                                                                    return window.Utils.getBatches().find(b =>
-                                                                                                                                        String(b.assessorUsername).trim() === String(username).trim() &&
-                                                                                                                                        String(b.assessorPassword).trim() === String(password).trim()
-                                                                                                                                    );
-                                                                                                                                }
+                return window.Utils.getBatches().find(b =>
+                    String(b.assessorUsername).trim() === String(username).trim() &&
+                    String(b.assessorPassword).trim() === String(password).trim()
+                );
+            }
         };
     </script>
 
