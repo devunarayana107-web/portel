@@ -4668,7 +4668,15 @@
                     answers,
                     evidence: [{ img: c.toDataURL(), time: new Date().toISOString(), type: 'SUBMISSION' }]
                 });
-                alert('Submitted!');
+
+                // AUTO-UPLOAD: Attempt to sync immediately
+                try {
+                    window.Utils.uploadToCloud(); // This is async but we let it run in background/show its own alerts
+                    alert('Submitted and Auto-Uploading to Cloud!');
+                } catch (e) {
+                    alert('Submitted! (Please click "Upload" manually if auto-upload fails)');
+                }
+
                 setExamMode(null);
                 setWebcamActive(false);
             };

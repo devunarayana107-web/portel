@@ -135,14 +135,18 @@ class DatabaseAdapter {
     }
 
     sync(table, items, callback) {
+        // SAFE SYNC: MERGE (UPSERT) instead of REPLACE
         if (this.type === 'postgres') {
-            // Transactional sync for Postgres
             (async () => {
                 const client = await this.pool.connect();
                 try {
                     await client.query('BEGIN');
-                    await client.query(`DELETE FROM ${table}`);
-                    const query = `INSERT INTO ${table} (id, data) VALUES ($1, $2)`;
+                    // DO NOT DELETE. ONLY UPSERT.
+                    // Upsert Query for Postgres
+                    const query = `
+                        INSERT INTO ${table} (id, data) VALUES ($1, $2)
+                        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data
+                    `;
                     for (const item of items) {
                         await client.query(query, [item.id, JSON.stringify(item)]);
                     }
@@ -156,10 +160,10 @@ class DatabaseAdapter {
                 }
             })();
         } else {
-            // SQLite Sync
+            // SQLite Upsert
             this.db.serialize(() => {
-                this.db.run(`DELETE FROM ${table}`);
-                const stmt = this.db.prepare(`INSERT INTO ${table} (id, data) VALUES (?, ?)`);
+                // DO NOT DELETE.
+                const stmt = this.db.prepare(`INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`);
                 items.forEach(item => {
                     stmt.run(item.id, JSON.stringify(item));
                 });
