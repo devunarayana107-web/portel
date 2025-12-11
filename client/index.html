@@ -168,7 +168,7 @@
                 if (statusBtn) statusBtn.innerText = "Synced";
             },
 
-            downloadFromCloud: async () => {
+            downloadFromCloud: async (silent = false) => {
                 const MAPPING = {
                     'batches': DB_KEYS.BATCHES, 'students': DB_KEYS.STUDENTS,
                     'qps': DB_KEYS.QP, 'nos': DB_KEYS.NOS, 'pcs': DB_KEYS.PC,
@@ -191,12 +191,20 @@
                         }
                     } catch (e) { console.error(`Download error ${route}`, e); }
                 }
-                alert(`Downloaded ${success} categories from Cloud! Reloading...`);
-                window.location.reload();
+                if (!silent) {
+                    alert(`Downloaded ${success} categories from Cloud! Reloading...`);
+                    window.location.reload();
+                } else {
+                    console.log(`Silent Download Complete: ${success} categories.`);
+                    // Optional: Dispatch event to force update if needed, but usually a mount effect handles it.
+                }
             },
 
             getSSC: () => JSON.parse(localStorage.getItem(DB_KEYS.SSC) || '[]'),
-            saveSSC: (ssc) => { const list = window.Utils.getSSC(); list.push(ssc); localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list)); },
+            saveSSC: (ssc) => {
+                const list = window.Utils.getSSC(); list.push(ssc); localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list));
+                window.Utils.uploadToCloud(true); // Auto-Upload immediately
+            },
             deleteSSC: (id) => {
                 // 1. Get SSC List and remove target
                 let list = window.Utils.getSSC().filter(s => s.id !== id);
@@ -2503,6 +2511,7 @@
                     createdAt: new Date().toISOString()
                 };
                 window.Utils.saveBatch(batch);
+                window.Utils.uploadToCloud(true); // Auto-Upload immediately
                 const updated = window.Utils.getBatches();
                 setBatches(updated);
                 setFilteredBatches(updated);
@@ -5030,6 +5039,30 @@
         // MAIN APP
         const App = () => {
             const [user, setUser] = useState(null);
+
+            // AUTO-DOWNLOAD ON START (Silent)
+            useEffect(() => {
+                const initSync = async () => {
+                    if (navigator.onLine) {
+                        try {
+                            console.log("Auto-Downloading latest data...");
+                            // We use a custom fetch here to avoid the RELOAD in the main function
+                            // or we can modify downloadFromCloud. simpler to just fetch here or make a silent version.
+                            // Let's modify downloadFromCloud to accept a 'silent' param for reload too?
+                            // No, let's just do a quick fetch for critical items.
+
+                            // Actually, safest is to just let the user click download if they are missing data, 
+                            // BUT user asked for "production ready".
+                            // Let's try to silently update localStorage. React won't see it until next mount or state update.
+                            // So we just update localStorage. If they log in, they might see it if component remounts.
+
+                            await window.Utils.downloadFromCloud(true); // Using a modified version that supports silent?
+                            // Wait, downloadFromCloud currently RELOADS. We need to fix that first.
+                        } catch (e) { console.error("Auto-Download failed", e); }
+                    }
+                };
+                initSync();
+            }, []);
             // useEffect(() => { if (window.lucide) window.lucide.createIcons(); }); // REMOVED: Managed by LucideIcon
             if (!user) return <LoginScreen onLogin={setUser} />;
             return (
