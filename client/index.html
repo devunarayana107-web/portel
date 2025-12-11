@@ -506,7 +506,7 @@
                             </div>
                             <div className="text-center text-xs text-gray-400 mt-4 space-y-1">
                                 <p>Demo: admin/admin</p>
-                                <p className="text-gray-400 text-[10px] mt-2">v2.6 (Production)</p>
+                                <p className="text-gray-400 text-[10px] mt-2">v2.7 (Bug Fix)</p>
                             </div>
                         </form>
                     </div >
@@ -4658,15 +4658,6 @@
                         const v = document.getElementById('student-cam-viva');
                         if (v) v.srcObject = stream;
                     });
-
-                    // Auto-end if signal removed (Assessor ended call)
-                    const checkEnd = setInterval(() => {
-                        if (!localStorage.getItem(`viva_active_${user.batchId}`)) {
-                            alert("The assessor has ended the meeting.");
-                            setExamMode(null);
-                        }
-                    }, 1000);
-                    return () => { clearInterval(checkEnd); }
                 }
             }, [examMode]);
             useEffect(() => {
