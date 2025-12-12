@@ -648,7 +648,7 @@
                             </div>
                             <div className="text-center text-xs text-gray-400 mt-4 space-y-1">
                                 <p>Demo: admin/admin</p>
-                                <p className="text-gray-400 text-[10px] mt-2">v3.3 (Dynamic Cloud)</p>
+                                <p className="text-gray-400 text-[10px] mt-2">v3.4 (Production)</p>
                             </div>
                         </form>
                     </div >
@@ -5293,7 +5293,20 @@
                 const pid = mode === 'Theory' ? batch.theoryPaperId : batch.practicalPaperId;
                 console.log(`Starting ${mode}: Batch=${batch.name}, AssignedID=${pid}, AvailableQPs=${window.Utils.getQuestionPapers().length}`);
 
-                const qp = window.Utils.getQuestionPapers().find(q => String(q.id) === String(pid));
+                let qp = window.Utils.getQuestionPapers().find(q => String(q.id) === String(pid));
+
+                // AUTO-HEAL 2: QP Missing? Try Syncing.
+                if (!qp) {
+                    const btn = document.getElementById('sync-status-text');
+                    if (btn) btn.innerText = "Fetching Exam Paper...";
+                    try {
+                        await window.Utils.downloadFromCloud(true);
+                        qp = window.Utils.getQuestionPapers().find(q => String(q.id) === String(pid));
+                    } catch (e) {
+                        console.error("Auto-heal QP sync failed", e);
+                    }
+                }
+
                 if (qp) {
                     setQuestions(qp.questions);
                     setTimeLeft(qp.totalTime * 60);
@@ -5303,7 +5316,7 @@
                         document.getElementById('student-cam').srcObject = stream;
                     });
                 } else {
-                    alert('Exam not assigned');
+                    alert(`Exam Error: The Question Paper (ID: ${pid}) assigned to this batch was not found.\nPlease contact Admin to Assign QP and Sync.`);
                 }
             };
 
