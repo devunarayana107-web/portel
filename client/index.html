@@ -102,81 +102,11 @@
             deleteFromCloud: async (route, id) => {
                 if (!id) return;
                 try {
-                    // Fire and forget (or log)
-                    fetch(`${SERVER_URL}/api/${route}/${id}`, {
+                    await fetch(`${SERVER_URL}/api/${route}/${id}`, {
                         method: 'DELETE',
                         headers: { 'x-api-key': API_KEY }
                     }).catch(e => console.error(`Failed to delete ${route}/${id}`, e));
                 } catch (e) { console.error("Delete setup failed", e); }
-            },
-
-            // CLOUD SYNC FUNCTIONS
-            uploadToCloud: async (silent = false) => {
-                const MAPPING = {
-                    [DB_KEYS.BATCHES]: 'batches', [DB_KEYS.STUDENTS]: 'students',
-                    [DB_KEYS.QP]: 'qps', [DB_KEYS.NOS]: 'nos', [DB_KEYS.PC]: 'pcs',
-                    [DB_KEYS.SSC]: 'ssc', [DB_KEYS.RESPONSES]: 'responses',
-                    [DB_KEYS.QUESTION_PAPERS]: 'question_papers'
-                };
-                let success = 0;
-                const statusBtn = document.getElementById('sync-status-text');
-                if (statusBtn) statusBtn.innerText = "Uploading...";
-
-                const errors = [];
-                for (const [key, route] of Object.entries(MAPPING)) {
-                    try {
-                        const dataStr = localStorage.getItem(key);
-                        if (dataStr && dataStr !== '[]') {
-                            let items = JSON.parse(dataStr);
-                            let modified = false;
-
-                            if (Array.isArray(items)) {
-                                items = items.map(item => {
-                                    if (!item.id) {
-                                        item.id = window.Utils.generateId ? window.Utils.generateId() : (Date.now().toString(36) + Math.random().toString(36).substr(2));
-                                        modified = true;
-                                    }
-                                    return item;
-                                });
-
-                                // Perform upload
-                                const res = await fetch(`${SERVER_URL}/api/sync/${route}`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'x-api-key': API_KEY
-                                    },
-                                    body: JSON.stringify(items)
-                                });
-                                // Save back sanitized data if we fixed anything
-                                if (modified) {
-                                    localStorage.setItem(key, JSON.stringify(items));
-                                    console.log(`Auto-repaired missing IDs for ${key}`);
-                                }
-
-                                if (!res.ok) {
-                                    const errText = await res.text();
-                                    throw new Error(`${res.status} ${res.statusText}: ${errText}`);
-                                }
-                                success++;
-                            }
-                        }
-                    } catch (e) {
-                        console.error(`Upload error ${route}`, e);
-                        if (!silent) errors.push(`${route}: ${e.message}`);
-                    }
-                }
-
-                if (!silent) {
-                    if (errors.length > 0) {
-                        alert(`Upload Finished with Errors:\n${errors.join('\n')}\n\nSuccess: ${success} categories.`);
-                    } else {
-                        alert(`Successfully Uploaded ${success} categories to Cloud!`);
-                    }
-                } else {
-                    console.log(`Auto-Sync Complete: ${success} categories uploaded.`);
-                }
-                if (statusBtn) statusBtn.innerText = "Synced";
             },
 
             // NEW: Atomic Save to Cloud
@@ -189,15 +119,6 @@
                         body: JSON.stringify(item)
                     });
                 } catch (e) { console.error(`Save ${route} failed`, e); }
-            },
-
-            deleteFromCloud: async (route, id) => {
-                try {
-                    if (!navigator.onLine) return;
-                    await fetch(`${SERVER_URL}/api/${route}/${id}`, {
-                        method: 'DELETE', headers: { 'x-api-key': API_KEY }
-                    });
-                } catch (e) { console.error(`Delete ${route} failed`, e); }
             },
 
             // CLOUD SYNC FUNCTIONS
@@ -266,6 +187,43 @@
                 } else {
                     console.log(`Auto-Sync Complete: ${success} categories uploaded.`);
                 }
+                if (statusBtn) statusBtn.innerText = "Synced";
+            },
+
+            downloadFromCloud: async (silent = false) => {
+                const MAPPING = {
+                    'batches': DB_KEYS.BATCHES, 'students': DB_KEYS.STUDENTS,
+                    'qps': DB_KEYS.QP, 'nos': DB_KEYS.NOS, 'pcs': DB_KEYS.PC,
+                    'ssc': DB_KEYS.SSC, 'responses': DB_KEYS.RESPONSES,
+                    'question_papers': DB_KEYS.QUESTION_PAPERS
+                };
+                let success = 0;
+                const statusBtn = document.getElementById('sync-status-text');
+                if (statusBtn) statusBtn.innerText = "Downloading...";
+
+                for (const [route, key] of Object.entries(MAPPING)) {
+                    try {
+                        if (!navigator.onLine) continue;
+                        const res = await fetch(`${SERVER_URL}/api/sync/${route}`, {
+                            headers: { 'x-api-key': API_KEY }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (Array.isArray(data)) {
+                                localStorage.setItem(key, JSON.stringify(data));
+                                success++;
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`Download error ${route}`, e);
+                    }
+                }
+
+                // TRIGGER UI UPDATES
+                window.dispatchEvent(new Event('cloud-sync-complete'));
+
+                if (!silent) alert(`Downloaded ${success} categories from Cloud.`);
+                console.log(`Cloud Sync (Download): ${success} categories updated.`);
                 if (statusBtn) statusBtn.innerText = "Synced";
             },
 
