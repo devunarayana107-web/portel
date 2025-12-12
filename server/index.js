@@ -258,8 +258,7 @@ createCRUDEndpoints('pcs', 'pcs');
 createCRUDEndpoints('responses', 'responses');
 createCRUDEndpoints('ssc', 'ssc');
 
-createCRUDEndpoints('responses', 'responses');
-createCRUDEndpoints('ssc', 'ssc');
+createCRUDEndpoints('question_papers', 'question_papers');
 
 // Removed duplicate health check from bottom
 

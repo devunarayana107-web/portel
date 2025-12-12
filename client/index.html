@@ -98,12 +98,25 @@
         window.Utils = {
             generateId: () => 'id_' + Math.random().toString(36).substr(2, 9) + Date.now(),
 
+            // HELPER: Delete from Cloud
+            deleteFromCloud: async (route, id) => {
+                if (!id) return;
+                try {
+                    // Fire and forget (or log)
+                    fetch(`${SERVER_URL}/api/${route}/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'x-api-key': API_KEY }
+                    }).catch(e => console.error(`Failed to delete ${route}/${id}`, e));
+                } catch (e) { console.error("Delete setup failed", e); }
+            },
+
             // CLOUD SYNC FUNCTIONS
             uploadToCloud: async (silent = false) => {
                 const MAPPING = {
                     [DB_KEYS.BATCHES]: 'batches', [DB_KEYS.STUDENTS]: 'students',
                     [DB_KEYS.QP]: 'qps', [DB_KEYS.NOS]: 'nos', [DB_KEYS.PC]: 'pcs',
-                    [DB_KEYS.SSC]: 'ssc', [DB_KEYS.RESPONSES]: 'responses'
+                    [DB_KEYS.SSC]: 'ssc', [DB_KEYS.RESPONSES]: 'responses',
+                    [DB_KEYS.QUESTION_PAPERS]: 'question_papers'
                 };
                 let success = 0;
                 const statusBtn = document.getElementById('sync-status-text');
@@ -114,8 +127,6 @@
                     try {
                         const dataStr = localStorage.getItem(key);
                         if (dataStr && dataStr !== '[]') {
-                            // Sanitization & Upload Logic ...
-                            // (Simplified for brevity, existing logic maintained)
                             let items = JSON.parse(dataStr);
                             let modified = false;
 
@@ -172,7 +183,8 @@
                 const MAPPING = {
                     'batches': DB_KEYS.BATCHES, 'students': DB_KEYS.STUDENTS,
                     'qps': DB_KEYS.QP, 'nos': DB_KEYS.NOS, 'pcs': DB_KEYS.PC,
-                    'ssc': DB_KEYS.SSC, 'responses': DB_KEYS.RESPONSES
+                    'ssc': DB_KEYS.SSC, 'responses': DB_KEYS.RESPONSES,
+                    'question_papers': DB_KEYS.QUESTION_PAPERS
                 };
                 let success = 0;
                 const statusBtn = document.getElementById('sync-status-text');
@@ -207,6 +219,7 @@
                 window.Utils.uploadToCloud(true); // Auto-Upload immediately
             },
             deleteSSC: (id) => {
+                window.Utils.deleteFromCloud('ssc', id);
                 // 1. Get SSC List and remove target
                 let list = window.Utils.getSSC().filter(s => s.id !== id);
                 localStorage.setItem(DB_KEYS.SSC, JSON.stringify(list));
@@ -217,6 +230,7 @@
                 const sscQPIds = sscQPs.map(q => q.id);
 
                 if (sscQPIds.length > 0) {
+                    sscQPIds.forEach(qpId => window.Utils.deleteFromCloud('qps', qpId));
                     // Remove QPs
                     const remainingQPs = allQPs.filter(q => q.sscId !== id);
                     localStorage.setItem(DB_KEYS.QP, JSON.stringify(remainingQPs));
@@ -227,44 +241,48 @@
                     const qpNOSIds = qpNOS.map(n => n.id);
 
                     if (qpNOSIds.length > 0) {
+                        qpNOSIds.forEach(nId => window.Utils.deleteFromCloud('nos', nId));
                         // Remove NOS
                         const remainingNOS = allNOS.filter(n => !sscQPIds.includes(n.qpId));
                         localStorage.setItem(DB_KEYS.NOS, JSON.stringify(remainingNOS));
 
                         // 4. Remove PCs for these NOS
                         const allPCs = window.Utils.getPCs();
+                        // Fix for filter:
+                        const pcsToDelete = allPCs.filter(p => qpNOSIds.includes(p.nosId));
+                        pcsToDelete.forEach(p => window.Utils.deleteFromCloud('pcs', p.id));
+
                         const remainingPCs = allPCs.filter(p => !qpNOSIds.includes(p.nosId));
                         localStorage.setItem(DB_KEYS.PC, JSON.stringify(remainingPCs));
                     }
 
-                    // 5. Remove Batches logic (If batches are linked to these QPs/SSCs)
-                    // Checking BatchesTab filter logic earlier: it filters by Question Papers linked to SSC.
-                    // We should remove Batches that are effectively orphaned or strictly linked.
-                    // Since specific linking is complex (Batch -> Paper -> QP -> SSC), 
-                    // a safer "delete everything" approach for SSC is to find Batches linked to this SSC ID directly if such field exists,
-                    // OR simply warn user. But user asked "delete everything".
-                    // Most direct link: Question Papers. Batches link to Papers.
-
+                    // 5. Remove Batches logic
                     // Remove Question Papers linked to this SSC
                     const allPapers = window.Utils.getQuestionPapers();
                     const sscPapers = allPapers.filter(p => p.sscId === id);
-                    const sscPaperIds = sscPapers.map(p => p.id);
+                    if (sscPapers.length > 0) {
+                        sscPapers.forEach(p => window.Utils.deleteFromCloud('question_papers', p.id));
 
-                    if (sscPaperIds.length > 0) {
+                        const sscPaperIds = sscPapers.map(p => p.id);
                         const remainingPapers = allPapers.filter(p => p.sscId !== id);
                         localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(remainingPapers));
 
                         // Remove Batches linked to these Papers
                         const allBatches = window.Utils.getBatches();
                         const batchesToDelete = allBatches.filter(b => sscPaperIds.includes(b.theoryPaperId) || sscPaperIds.includes(b.practicalPaperId));
-                        const batchIdsToDelete = batchesToDelete.map(b => b.id);
 
-                        if (batchIdsToDelete.length > 0) {
+                        if (batchesToDelete.length > 0) {
+                            batchesToDelete.forEach(b => window.Utils.deleteFromCloud('batches', b.id));
+
+                            const batchIdsToDelete = batchesToDelete.map(b => b.id);
                             const remainingBatches = allBatches.filter(b => !batchIdsToDelete.includes(b.id));
                             localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(remainingBatches));
 
                             // Remove Students in these Batches
                             const allStudents = window.Utils.getStudents();
+                            const studentsToDelete = allStudents.filter(s => batchIdsToDelete.includes(s.batchId));
+                            studentsToDelete.forEach(s => window.Utils.deleteFromCloud('students', s.id));
+
                             const remainingStudents = allStudents.filter(s => !batchIdsToDelete.includes(s.batchId));
                             localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(remainingStudents));
                         }
@@ -274,32 +292,58 @@
             getQPs: () => JSON.parse(localStorage.getItem(DB_KEYS.QP) || '[]'),
             getQPsBySSC: (sscId) => window.Utils.getQPs().filter(q => q.sscId === sscId),
             saveQP: (qp) => { const list = window.Utils.getQPs(); list.push(qp); localStorage.setItem(DB_KEYS.QP, JSON.stringify(list)); },
-            deleteQP: (id) => { let list = window.Utils.getQPs().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QP, JSON.stringify(list)); },
+            deleteQP: (id) => {
+                window.Utils.deleteFromCloud('qps', id);
+                let list = window.Utils.getQPs().filter(q => q.id !== id);
+                localStorage.setItem(DB_KEYS.QP, JSON.stringify(list));
+            },
             getNOS: () => JSON.parse(localStorage.getItem(DB_KEYS.NOS) || '[]'),
             getNOSByQP: (qpId) => window.Utils.getNOS().filter(n => n.qpId === qpId),
             saveNOS: (nos) => { const list = window.Utils.getNOS(); list.push(nos); localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list)); },
-            deleteNOS: (id) => { let list = window.Utils.getNOS().filter(n => n.id !== id); localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list)); },
+            deleteNOS: (id) => {
+                window.Utils.deleteFromCloud('nos', id);
+                let list = window.Utils.getNOS().filter(n => n.id !== id);
+                localStorage.setItem(DB_KEYS.NOS, JSON.stringify(list));
+            },
             getPCs: () => JSON.parse(localStorage.getItem(DB_KEYS.PC) || '[]'),
             getPCsByNOS: (nosId) => window.Utils.getPCs().filter(p => p.nosId === nosId),
             savePC: (pc) => { const list = window.Utils.getPCs(); list.push(pc); localStorage.setItem(DB_KEYS.PC, JSON.stringify(list)); },
-            deletePC: (id) => { let list = window.Utils.getPCs().filter(p => p.id !== id); localStorage.setItem(DB_KEYS.PC, JSON.stringify(list)); },
+            deletePC: (id) => {
+                window.Utils.deleteFromCloud('pcs', id);
+                let list = window.Utils.getPCs().filter(p => p.id !== id);
+                localStorage.setItem(DB_KEYS.PC, JSON.stringify(list));
+            },
             getBatches: () => JSON.parse(localStorage.getItem(DB_KEYS.BATCHES) || '[]'),
             saveBatch: (batch) => { const list = window.Utils.getBatches(); list.push(batch); localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list)); },
             updateBatches: (batches) => localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(batches)),
             deleteBatch: (id) => {
+                window.Utils.deleteFromCloud('batches', id);
                 let list = window.Utils.getBatches().filter(b => b.id !== id);
                 localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list));
-                let students = window.Utils.getStudents().filter(s => s.batchId !== id);
+
+                let allStudents = window.Utils.getStudents();
+                let studentsToDelete = allStudents.filter(s => s.batchId === id);
+                studentsToDelete.forEach(s => window.Utils.deleteFromCloud('students', s.id));
+
+                let students = allStudents.filter(s => s.batchId !== id);
                 localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(students));
             },
             getStudents: () => JSON.parse(localStorage.getItem(DB_KEYS.STUDENTS) || '[]'),
             getStudentsByBatch: (batchId) => window.Utils.getStudents().filter(s => s.batchId === batchId),
             saveStudent: (student) => { const list = window.Utils.getStudents(); list.push(student); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
-            deleteStudent: (id) => { let list = window.Utils.getStudents().filter(s => s.id !== id); localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list)); },
+            deleteStudent: (id) => {
+                window.Utils.deleteFromCloud('students', id);
+                let list = window.Utils.getStudents().filter(s => s.id !== id);
+                localStorage.setItem(DB_KEYS.STUDENTS, JSON.stringify(list));
+            },
             authenticateStudent: (username, password) => window.Utils.getStudents().find(s => String(s.username).trim().toLowerCase() === String(username).trim().toLowerCase() && String(s.password).trim() === String(password).trim()),
             getQuestionPapers: () => JSON.parse(localStorage.getItem(DB_KEYS.QUESTION_PAPERS) || '[]'),
             saveQuestionPaper: (qp) => { const list = window.Utils.getQuestionPapers(); list.push(qp); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
-            deleteQuestionPaper: (id) => { let list = window.Utils.getQuestionPapers().filter(q => q.id !== id); localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list)); },
+            deleteQuestionPaper: (id) => {
+                window.Utils.deleteFromCloud('question_papers', id);
+                let list = window.Utils.getQuestionPapers().filter(q => q.id !== id);
+                localStorage.setItem(DB_KEYS.QUESTION_PAPERS, JSON.stringify(list));
+            },
             getResponses: () => JSON.parse(localStorage.getItem(DB_KEYS.RESPONSES) || '[]'),
             saveResponse: (response) => {
                 const list = window.Utils.getResponses();
@@ -613,7 +657,7 @@
                             <Icons.Plus /> Add SSC
                         </button>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b">
                                 <tr>
@@ -1320,7 +1364,7 @@
                     {!selectedQP && <div className="p-4 mb-4 bg-yellow-50 text-yellow-800 rounded border border-yellow-200">Please select a Qualification Pack to view NOS details.</div>}
 
                     {selectedQP && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50 border-b">
                                     <tr>
@@ -1754,7 +1798,7 @@
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-gray-50 border-b">
                                 <tr>
