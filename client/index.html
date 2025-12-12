@@ -5181,7 +5181,9 @@
                 }
 
                 const pid = mode === 'Theory' ? batch.theoryPaperId : batch.practicalPaperId;
-                const qp = window.Utils.getQuestionPapers().find(q => q.id === pid);
+                console.log(`Starting ${mode}: Batch=${batch.name}, AssignedID=${pid}, AvailableQPs=${window.Utils.getQuestionPapers().length}`);
+
+                const qp = window.Utils.getQuestionPapers().find(q => String(q.id) === String(pid));
                 if (qp) {
                     setQuestions(qp.questions);
                     setTimeLeft(qp.totalTime * 60);
