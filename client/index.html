@@ -114,16 +114,7 @@
             },
 
             // NEW: Atomic Save to Cloud
-            saveToCloud: async (route, item) => {
-                try {
-                    if (!navigator.onLine) return;
-                    await fetch(`${SERVER_URL}/api/${route}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
-                        body: JSON.stringify(item)
-                    });
-                } catch (e) { console.error(`Save ${route} failed`, e); }
-            },
+
 
             // CLOUD SYNC FUNCTIONS
             uploadToCloud: async (silent = false) => {
@@ -358,7 +349,24 @@
                 localStorage.setItem(DB_KEYS.PC, JSON.stringify(list));
             },
             getBatches: () => JSON.parse(localStorage.getItem(DB_KEYS.BATCHES) || '[]'),
-            saveBatch: (batch) => {
+            saveToCloud: async (route, item) => {
+                try {
+                    if (!navigator.onLine) return false;
+                    const res = await fetch(`${SERVER_URL}/api/${route}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                        body: JSON.stringify(item)
+                    });
+                    return res.ok;
+                } catch (e) {
+                    console.error(`Save ${route} failed`, e);
+                    return false;
+                }
+            },
+
+            // ... (Other functions) ...
+
+            saveBatch: async (batch) => {
                 let list = window.Utils.getBatches();
                 if (!batch.id) batch.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -370,7 +378,14 @@
                 }
 
                 localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list));
-                window.Utils.saveToCloud('batches', batch);
+
+                // Explicit Feedback for Admin
+                const saved = await window.Utils.saveToCloud('batches', batch);
+                if (saved) {
+                    alert("Batch Saved & Synced to Cloud Successfully!");
+                } else {
+                    alert("Batch Saved Locally but Cloud Sync FAILED.\nPlease check connection and try again.");
+                }
             },
             updateBatches: (batches) => localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(batches)),
             deleteBatch: (id) => {
