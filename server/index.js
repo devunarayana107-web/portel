@@ -226,14 +226,17 @@ function createCRUDEndpoints(tableName, routeName) {
 
         dbAdapter.upsert(tableName, id, dataStr, (err) => {
             if (err) return res.status(500).json({ error: err.message });
+            io.emit('data-change', { table: tableName, action: 'update', id: id });
             res.json({ success: true, id: id });
         });
     });
 
     // DELETE
     app.delete(`/api/${routeName}/:id`, (req, res) => {
-        dbAdapter.delete(tableName, req.params.id, (err) => {
+        const id = req.params.id;
+        dbAdapter.delete(tableName, id, (err) => {
             if (err) return res.status(500).json({ error: err.message });
+            io.emit('data-change', { table: tableName, action: 'delete', id: id });
             res.json({ success: true });
         });
     });
@@ -245,6 +248,7 @@ function createCRUDEndpoints(tableName, routeName) {
 
         dbAdapter.sync(tableName, items, (err) => {
             if (err) return res.status(500).json({ error: err && err.message });
+            io.emit('data-change', { table: tableName, action: 'sync' });
             res.json({ success: true, count: items.length });
         });
     });
