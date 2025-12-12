@@ -479,12 +479,20 @@
             const ref = useRef(null);
             useEffect(() => {
                 if (window.lucide && ref.current) {
-                    window.lucide.createIcons({
-                        attrs: { class: className },
-                        nameAttr: 'data-lucide',
-                        icons: { [name]: window.lucide.icons[name] }, // Pass specific icon
-                        root: ref.current.parentNode // Create icons in parent? No, createIcons searches inside root.
-                    });
+                    // Convert kebab-case (download, file-text) to PascalCase (Download, FileText) for lookup
+                    const iconKey = name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+                    const iconDef = window.lucide.icons[iconKey];
+
+                    if (iconDef) {
+                        window.lucide.createIcons({
+                            attrs: { class: className },
+                            nameAttr: 'data-lucide',
+                            icons: { [name]: iconDef }, // Map 'download' -> Download definition
+                            root: ref.current.parentNode
+                        });
+                    } else {
+                        console.warn(`Icon not found: ${name} (Key: ${iconKey})`);
+                    }
                     // Actually createIcons replaces elements with data-lucide.
                     // We need to render <i data-lucide={name} /> and let lucide replace it.
                     // BUT we want to scope it.
