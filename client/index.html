@@ -520,7 +520,10 @@
             Edit3: () => <LucideIcon name="edit-3" className="w-4 h-4" />,
             UserPlus: () => <LucideIcon name="user-plus" className="w-5 h-5" />,
             ChevronDown: () => <LucideIcon name="chevron-down" className="w-4 h-4" />,
+            ChevronLeft: () => <LucideIcon name="chevron-left" className="w-4 h-4" />,
             ChevronRight: () => <LucideIcon name="chevron-right" className="w-4 h-4" />,
+            Map: () => <LucideIcon name="map" className="w-4 h-4" />,
+            Home: () => <LucideIcon name="home" className="w-4 h-4" />,
             Grid: () => <LucideIcon name="grid" className="w-5 h-5" />,
             Calendar: () => <LucideIcon name="calendar" className="w-5 h-5" />,
             MapPin: () => <LucideIcon name="map-pin" className="w-5 h-5" />,
@@ -4142,6 +4145,219 @@
             );
         };
 
+        const CalendarTab = () => {
+            const [date, setDate] = useState(new Date());
+            const [events, setEvents] = useState([]);
+            const [selectedDateEvents, setSelectedDateEvents] = useState([]);
+
+            useEffect(() => {
+                const loadEvents = () => {
+                    const loadEvents = () => {
+                        const batches = window.Utils.getBatches();
+                        // Map batches to events
+                        const evts = [];
+                        batches.forEach(b => {
+                            if (b.startDate) {
+                                const d = new Date(b.startDate);
+                                if (!isNaN(d.getTime())) {
+                                    evts.push({
+                                        date: d,
+                                        title: `Start: ${b.name}`,
+                                        type: 'start',
+                                        data: b
+                                    });
+                                }
+                            }
+                            if (b.endDate) {
+                                const d = new Date(b.endDate);
+                                if (!isNaN(d.getTime())) {
+                                    evts.push({
+                                        date: d,
+                                        title: `End: ${b.name}`,
+                                        type: 'end',
+                                        data: b
+                                    });
+                                }
+                            }
+                        });
+                        setEvents(evts);
+                    };
+                };
+                loadEvents();
+                window.addEventListener('cloud-sync-complete', loadEvents);
+                return () => window.removeEventListener('cloud-sync-complete', loadEvents);
+            }, []);
+
+            const daysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
+            const firstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
+
+            const renderCalendar = () => {
+                const month = date.getMonth();
+                const year = date.getFullYear();
+                const totalDays = daysInMonth(month, year);
+                const startDay = firstDayOfMonth(month, year);
+                const days = [];
+
+                // Empty slots for days before start of month
+                for (let i = 0; i < startDay; i++) {
+                    days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50 border border-gray-100"></div>);
+                }
+
+                // Days of month
+                for (let d = 1; d <= totalDays; d++) {
+                    const currentDay = new Date(year, month, d);
+                    const dayEvents = events.filter(e =>
+                        e.date.getDate() === d &&
+                        e.date.getMonth() === month &&
+                        e.date.getFullYear() === year
+                    );
+
+                    days.push(
+                        <div key={d}
+                            onClick={() => setSelectedDateEvents(dayEvents)}
+                            className={`h-24 border border-gray-100 p-2 cursor-pointer transition hover:bg-blue-50 ${dayEvents.length > 0 ? 'bg-blue-50/30' : 'bg-white'}`}>
+                            <div className="flex justify-between items-start">
+                                <span className={`text-sm font-bold ${dayEvents.length > 0 ? 'text-blue-600' : 'text-gray-700'}`}>{d}</span>
+                                {dayEvents.length > 0 && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
+                            </div>
+                            <div className="mt-1 space-y-1 overflow-hidden h-14">
+                                {dayEvents.map((ev, i) => (
+                                    <div key={i} className={`text-[10px] truncate px-1 rounded ${ev.type === 'start' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {ev.title}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                }
+                return days;
+            };
+
+            const changeMonth = (offset) => {
+                setDate(new Date(date.getFullYear(), date.getMonth() + offset, 1));
+            };
+
+            return (
+                <div className="animate-fade-in grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">{date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
+                            <div className="flex gap-2">
+                                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full"><Icons.ChevronLeft /></button>
+                                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full"><Icons.ChevronRight /></button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-7 gap-px mb-2 text-center text-xs font-bold text-gray-500 uppercase">
+                            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                        </div>
+                        <div className="grid grid-cols-7 border border-gray-100 rounded-lg overflow-hidden">
+                            {renderCalendar()}
+                        </div>
+                    </div>
+
+                    {/* Event Details Sidebar */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Events</h3>
+                        {selectedDateEvents.length > 0 ? (
+                            <div className="space-y-4">
+                                {selectedDateEvents.map((evt, idx) => (
+                                    <div key={idx} className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+                                        <div className={`text-xs font-bold uppercase mb-1 ${evt.type === 'start' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {evt.type === 'start' ? 'Batch Starting' : 'Batch Ending'}
+                                        </div>
+                                        <h4 className="font-bold text-gray-800">{evt.data.name}</h4>
+                                        <p className="text-xs text-gray-500 mt-1">{evt.data.qpName || 'No QP Assigned'}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center text-gray-400 py-10">
+                                <Icons.Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                <p>Select a date with dots to see details</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const LocationTab = () => {
+            const [centers, setCenters] = useState([]);
+
+            useEffect(() => {
+                const loadCenters = () => {
+                    const batches = window.Utils.getBatches();
+                    // Extract unique centers from batches
+                    // Assuming batch has 'trainingCentre', 'district', 'state', 'centerId', 'centerAddress'
+                    const centerMap = new Map();
+                    batches.forEach(b => {
+                        if (b.trainingCentre) {
+                            if (!centerMap.has(b.trainingCentre)) {
+                                centerMap.set(b.trainingCentre, {
+                                    name: b.trainingCentre,
+                                    id: b.centerId || 'N/A',
+                                    district: b.district || 'Unknown',
+                                    state: b.state || 'Unknown',
+                                    spoc: b.spocName || 'N/A', // Assuming spocName exists or strictly spocEmail
+                                    address: b.centerAddress || '',
+                                    activeBatches: 0
+                                });
+                            }
+                            centerMap.get(b.trainingCentre).activeBatches += 1;
+                        }
+                    });
+                    setCenters(Array.from(centerMap.values()));
+                };
+                loadCenters();
+                window.addEventListener('cloud-sync-complete', loadCenters);
+                return () => window.removeEventListener('cloud-sync-complete', loadCenters);
+            }, []);
+
+            return (
+                <div className="animate-fade-in">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-800">Assessment Locations</h2>
+                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-bold">{centers.length} Centers Active</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {centers.map((center, idx) => (
+                            <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+                                        <Icons.MapPin className="w-6 h-6" />
+                                    </div>
+                                    <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                        {center.activeBatches} Active batches
+                                    </span>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-1">{center.name}</h3>
+                                <p className="text-sm text-gray-500 mb-4">{center.id}</p>
+
+                                <div className="space-y-2 text-sm text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        <Icons.Map className="w-4 h-4 opacity-70" />
+                                        <span>{center.district}, {center.state}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Icons.Home className="w-4 h-4 opacity-70" />
+                                        <span className="truncate" title={center.address}>{center.address || 'No Address Provided'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {centers.length === 0 && (
+                        <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                            <Icons.MapPin className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                            <h3 className="text-xl font-bold text-gray-400">No Training Centers Found</h3>
+                            <p className="text-gray-500">Create Batches with Center details to populate this map.</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         const DashboardTab = () => {
             const [stats, setStats] = useState({ batches: 0, students: 0, qps: 0, assessors: 0 });
             const [recentBatches, setRecentBatches] = useState([]);
@@ -4297,8 +4513,8 @@
 
                         <div className="p-8">
                             {activeTab === 'dashboard' && <DashboardTab />}
-                            {activeTab === 'calendar' && <div className="text-center text-gray-400 mt-20">Calendar Component Placeholder</div>}
-                            {activeTab === 'location' && <div className="text-center text-gray-400 mt-20">Assessment Location Component Placeholder</div>}
+                            {activeTab === 'calendar' && <CalendarTab />}
+                            {activeTab === 'location' && <LocationTab />}
 
                             {activeTab === 'subjects' && <SubjectsTab />}
                             {activeTab === 'qps' && <QPsTab onNavigateToNOS={handleNavigateToNOS} />}
