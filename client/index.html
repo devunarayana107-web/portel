@@ -5196,49 +5196,63 @@
                 return () => clearInterval(interval);
             }, [examMode, timeLeft]);
 
-            const startExam = (mode) => {
-                const batch = window.Utils.getBatches().find(b => b.id === user.batchId);
+            const startExam = async (mode) => {
+                let batch = window.Utils.getBatches().find(b => b.id === user.batchId);
 
-                // Strict Time Window Check
-                if (batch.startDate && batch.startTime && batch.endDate && batch.endTime) {
-                    const now = new Date();
-
-                    // Helper to parse potential DD/MM/YYYY or YYYY-MM-DD
-                    const parseDateTime = (dateStr, timeStr) => {
-                        let d = new Date(`${dateStr}T${timeStr}`);
-                        if (isNaN(d.getTime())) {
-                            // Try parsing DD/MM/YYYY manually
-                            if (dateStr.includes('/')) {
-                                const parts = dateStr.split('/');
-                                if (parts.length === 3) {
-                                    // Assume DD/MM/YYYY
-                                    d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeStr}`);
-                                }
+                // Helper to parse potential DD/MM/YYYY or YYYY-MM-DD
+                const parseDateTime = (dateStr, timeStr) => {
+                    if (!dateStr || !timeStr) return null;
+                    let d = new Date(`${dateStr}T${timeStr}`);
+                    if (isNaN(d.getTime())) {
+                        if (dateStr.includes('/')) {
+                            const parts = dateStr.split('/');
+                            if (parts.length === 3) {
+                                d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeStr}`);
                             }
                         }
-                        return d;
-                    };
-
-                    const start = parseDateTime(batch.startDate, batch.startTime);
-                    const end = parseDateTime(batch.endDate, batch.endTime);
-
-                    console.log("[ExamCheck] Now:", now);
-                    console.log("[ExamCheck] Start:", start, "Raw:", batch.startDate, batch.startTime);
-                    console.log("[ExamCheck] End:", end, "Raw:", batch.endDate, batch.endTime);
-
-                    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                        alert(`Date Error: Could not parse dates.\nStart: ${batch.startDate}\nEnd: ${batch.endDate}`);
-                        return;
                     }
+                    return d;
+                };
 
-                    if (now < start) {
-                        alert(`Exam has not started yet.\n\nCurrent Time: ${now.toLocaleString()}\nStart Time: ${start.toLocaleString()}`);
-                        return;
+                const checkExpiry = (b) => {
+                    if (!b.startDate || !b.startTime || !b.endDate || !b.endTime) return 'OK';
+                    const now = new Date();
+                    const start = parseDateTime(b.startDate, b.startTime);
+                    const end = parseDateTime(b.endDate, b.endTime);
+                    if (!start || !end) return 'ERROR';
+                    if (now < start) return { status: 'FUTURE', time: start };
+                    if (now > end) return { status: 'EXPIRED', time: end };
+                    return 'OK';
+                };
+
+                let status = checkExpiry(batch);
+
+                // AUTO-HEAL: If expired, try syncing once in case it's stale data
+                if (status && status.status === 'EXPIRED') {
+                    const btn = document.getElementById('sync-status-text');
+                    if (btn) btn.innerText = "Verifying Date...";
+
+                    try {
+                        await window.Utils.downloadFromCloud(true);
+                        // Re-fetch batch
+                        batch = window.Utils.getBatches().find(b => b.id === user.batchId);
+                        status = checkExpiry(batch);
+                    } catch (e) {
+                        console.error("Auto-heal sync failed", e);
                     }
-                    if (now > end) {
-                        alert(`Exam has expired.\n\nCurrent Time: ${now.toLocaleString()}\nEnd Time: ${end.toLocaleString()}\nRaw End: ${batch.endDate} ${batch.endTime}`);
-                        return;
-                    }
+                }
+
+                if (status === 'ERROR') {
+                    alert("Date Error: Invalid Date Format in Batch settings.");
+                    return;
+                }
+                if (status && status.status === 'FUTURE') {
+                    alert(`Exam has not started yet.\nStart Time: ${status.time.toLocaleString()}`);
+                    return;
+                }
+                if (status && status.status === 'EXPIRED') {
+                    alert(`Exam has expired.\nEnd Time: ${status.time.toLocaleString()}`);
+                    return;
                 }
 
                 const pid = mode === 'Theory' ? batch.theoryPaperId : batch.practicalPaperId;
