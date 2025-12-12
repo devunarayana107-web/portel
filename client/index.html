@@ -648,6 +648,13 @@
                                     Login as {role.charAt(0).toUpperCase() + role.slice(1)}
                                 </button>
                                 <button type="button" onClick={async () => {
+                                    if (confirm("Force Upload Local Data to Cloud? (Use this if other devices are missing data)")) {
+                                        await window.Utils.uploadToCloud();
+                                    }
+                                }} className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors" title="Force Upload to Cloud">
+                                    <Icons.Upload className="w-5 h-5" />
+                                </button>
+                                <button type="button" onClick={async () => {
                                     await window.Utils.downloadFromCloud();
                                     setDebugInfo(prev => ({ ...prev, studentCount: window.Utils.getStudents().length }));
                                 }} className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors" title="Sync Latest Data">
