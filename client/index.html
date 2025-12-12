@@ -2674,7 +2674,7 @@
                 };
 
                 window.Utils.saveBatch(batch);
-                window.Utils.uploadToCloud(true); // Auto-Upload immediately
+                // Atomic Sync handles upload now
                 const updated = window.Utils.getBatches();
                 setBatches(updated);
                 setFilteredBatches(updated);
