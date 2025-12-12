@@ -355,10 +355,16 @@
             },
             getBatches: () => JSON.parse(localStorage.getItem(DB_KEYS.BATCHES) || '[]'),
             saveBatch: (batch) => {
-                const list = window.Utils.getBatches();
-                // Batch usually generates ID in UI, but safety check
+                let list = window.Utils.getBatches();
                 if (!batch.id) batch.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
-                list.push(batch);
+
+                const existingIndex = list.findIndex(b => b.id === batch.id);
+                if (existingIndex >= 0) {
+                    list[existingIndex] = batch; // Update
+                } else {
+                    list.push(batch); // Insert
+                }
+
                 localStorage.setItem(DB_KEYS.BATCHES, JSON.stringify(list));
                 window.Utils.saveToCloud('batches', batch);
             },
@@ -2675,16 +2681,24 @@
 
             const handleAssignQP = () => {
                 if (!selectedBatch || !selectedAssignQP) return;
-                const updatedBatches = batches.map(b => {
-                    if (b.id === selectedBatch.id) {
-                        const field = assignmentType === 'Practical' ? 'practicalPaperId' : (assignmentType === 'Viva' ? 'vivaPaperId' : 'theoryPaperId');
-                        return { ...b, [field]: selectedAssignQP };
-                    }
-                    return b;
-                });
-                window.Utils.updateBatches(updatedBatches);
-                setBatches(updatedBatches);
-                setFilteredBatches(updatedBatches);
+
+                // Find existing batch and update just that one
+                const currentBatches = window.Utils.getBatches();
+                const targetBatchIndex = currentBatches.findIndex(b => b.id === selectedBatch.id);
+
+                if (targetBatchIndex >= 0) {
+                    const field = assignmentType === 'Practical' ? 'practicalPaperId' : (assignmentType === 'Viva' ? 'vivaPaperId' : 'theoryPaperId');
+                    const updatedBatch = { ...currentBatches[targetBatchIndex], [field]: selectedAssignQP };
+
+                    // Use Atomic Save (which now supports Upsert & Sync)
+                    window.Utils.saveBatch(updatedBatch);
+
+                    // Refresh React State
+                    const refreshed = window.Utils.getBatches();
+                    setBatches(refreshed);
+                    setFilteredBatches(refreshed);
+                }
+
                 setShowAssignModal(false);
                 setSelectedBatch(null);
                 setSelectedAssignQP('');
