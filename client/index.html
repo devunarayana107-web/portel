@@ -3679,6 +3679,10 @@
                 setStudents(window.Utils.getStudentsByBatch(selectedBatch.id));
             };
 
+            const viewEvidence = (student) => {
+                setSelectedStudent(student);
+            };
+
 
 
 
@@ -5678,7 +5682,7 @@
                             examType={selectedExamType}
                             allQPapers={allQPapers}
                             onBack={() => setView('students')}
-                            captureOnly={true} // Enable Capture Only Mode
+                            captureOnly={false} // Disable Capture Only Mode to allow Grading
                         />
                     </div>
                 );
