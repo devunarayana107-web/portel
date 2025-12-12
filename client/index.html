@@ -5199,6 +5199,11 @@
             const startExam = async (mode) => {
                 let batch = window.Utils.getBatches().find(b => b.id === user.batchId);
 
+                if (!batch) {
+                    alert('Exam Error: Your assigned Batch was not found.\nPlease contact Admin to re-assign/update.');
+                    return;
+                }
+
                 // Helper to parse potential DD/MM/YYYY or YYYY-MM-DD
                 const parseDateTime = (dateStr, timeStr) => {
                     if (!dateStr || !timeStr) return null;
@@ -5237,8 +5242,12 @@
                         // Re-fetch batch
                         batch = window.Utils.getBatches().find(b => b.id === user.batchId);
                         status = checkExpiry(batch);
+
+                        alert(`Auto-Sync Completed.\nNew End Date: ${batch.endDate} ${batch.endTime}\nStatus: ${status === 'OK' ? 'Active' : status.status}`);
+
                     } catch (e) {
                         console.error("Auto-heal sync failed", e);
+                        alert(`Auto-Sync Failed: ${e.message}\nPlease check internet connection.`);
                     }
                 }
 
