@@ -57,6 +57,10 @@
         const SERVER_URL = 'https://portel-backend.onrender.com';
         const API_KEY = 'portel_secure_key_2025'; // Must match server
 
+        // Global Socket Initialization for Real-Time Sync
+        const socket = io(SERVER_URL);
+
+
         // IndexedDB for Large Video Storage
         window.VideoDB = {
             dbName: 'ProctoringDB',
@@ -5575,6 +5579,29 @@
                         } catch (e) { }
                     }
                 }, 20000);
+
+                // Real-Time Socket Sync
+                useEffect(() => {
+                    const handleDataChange = async () => {
+                        console.log("Remote Data Change Detected -> Auto-Syncing...");
+                        if (navigator.onLine) {
+                            try {
+                                await window.Utils.downloadFromCloud(true);
+                                // Optional: Force re-render if needed, but Utils updates localStorage
+                                // and components using localStorage or listeners will update.
+                                window.dispatchEvent(new Event('cloud-sync-complete'));
+                            } catch (e) {
+                                console.error("Auto-Sync Failed", e);
+                            }
+                        }
+                    };
+
+                    socket.on('data-change', handleDataChange);
+
+                    return () => {
+                        socket.off('data-change', handleDataChange);
+                    };
+                }, []);
 
                 return () => clearInterval(pollInterval);
             }, []);
