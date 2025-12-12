@@ -199,12 +199,23 @@
                 for (const [route, key] of Object.entries(MAPPING)) {
                     try {
                         if (!navigator.onLine) continue;
-                        // FIX: Use correct GET endpoint (not sync/)
                         const res = await fetch(`${SERVER_URL}/api/${route}`, {
                             headers: { 'x-api-key': API_KEY }
                         });
+
                         if (res.ok) {
                             const data = await res.json();
+
+                            // HYDRATION CHECK: If Server is Empty but Local has Data -> Restore Server
+                            const localData = JSON.parse(localStorage.getItem(key) || '[]');
+                            if (Array.isArray(data) && data.length === 0 && localData.length > 0) {
+                                console.warn(`[Hydration] Server missing data for ${key}. Restoring from Local...`);
+                                // We don't overwrite local with empty server data
+                                // Instead, we trigger an upload in background
+                                setTimeout(() => window.Utils.uploadToCloud(true), 1000);
+                                continue;
+                            }
+
                             if (Array.isArray(data)) {
                                 localStorage.setItem(key, JSON.stringify(data));
                                 success++;
