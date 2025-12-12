@@ -204,7 +204,8 @@
                 for (const [route, key] of Object.entries(MAPPING)) {
                     try {
                         if (!navigator.onLine) continue;
-                        const res = await fetch(`${SERVER_URL}/api/sync/${route}`, {
+                        // FIX: Use correct GET endpoint (not sync/)
+                        const res = await fetch(`${SERVER_URL}/api/${route}`, {
                             headers: { 'x-api-key': API_KEY }
                         });
                         if (res.ok) {
