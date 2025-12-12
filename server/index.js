@@ -112,7 +112,7 @@ class DatabaseAdapter {
 
     init() {
         const tables = [
-            "batches", "students", "qps", "nos", "pcs", "responses", "ssc"
+            "batches", "students", "qps", "nos", "pcs", "responses", "ssc", "question_papers"
         ];
 
         // Define schemas
