@@ -92,7 +92,10 @@ const { v4: uuidv4 } = require('uuid');
 class DatabaseAdapter {
     constructor() {
         this.type = process.env.DATABASE_URL ? 'postgres' : 'sqlite';
-        console.log(`Initializing Database Adapter for: ${this.type}`);
+        console.log("========================================");
+        console.log(`DATABASE ADAPTER: ${this.type.toUpperCase()}`);
+        console.log(`Has DATABASE_URL: ${!!process.env.DATABASE_URL}`);
+        console.log("========================================");
 
         if (this.type === 'postgres') {
             this.pool = new Pool({
