@@ -2662,13 +2662,17 @@
 
             const handleCreateBatch = (e) => {
                 e.preventDefault();
+
+                const isUpdate = !!newBatch.id;
+
                 const batch = {
                     ...newBatch,
-                    id: window.Utils.generateId(),
-                    assessorUsername: 'assessor_' + Math.random().toString(36).substr(2, 5),
-                    assessorPassword: Math.random().toString(36).substr(2, 6),
-                    createdAt: new Date().toISOString()
+                    id: isUpdate ? newBatch.id : window.Utils.generateId(),
+                    assessorUsername: isUpdate ? newBatch.assessorUsername : 'assessor_' + Math.random().toString(36).substr(2, 5),
+                    assessorPassword: isUpdate ? newBatch.assessorPassword : Math.random().toString(36).substr(2, 6),
+                    createdAt: isUpdate ? newBatch.createdAt : new Date().toISOString()
                 };
+
                 window.Utils.saveBatch(batch);
                 window.Utils.uploadToCloud(true); // Auto-Upload immediately
                 const updated = window.Utils.getBatches();
@@ -2681,6 +2685,11 @@
                     batchSize: '', centerId: '', district: '', spocEmail: '', tpName: '', startTime: '', endTime: '',
                     captureImage: true, cameraInterval: '60', sscId: '', qpId: ''
                 });
+            };
+
+            const handleEditBatch = (batch) => {
+                setNewBatch(batch);
+                setShowCreateModal(true);
             };
 
             const handleAssignQP = () => {
@@ -2967,7 +2976,7 @@
                                                     <td className="p-3 border-r text-gray-600">{batch.state || '-'}</td>
                                                     <td className="p-3 border-r text-gray-600">{batch.district || '-'}</td>
                                                     <td className="p-3 border-r text-center">
-                                                        <button className="bg-cyan-700 text-white p-2 rounded hover:bg-cyan-800"><Icons.Edit3 className="w-4 h-4" /></button>
+                                                        <button onClick={() => handleEditBatch(batch)} className="bg-cyan-700 text-white p-2 rounded hover:bg-cyan-800"><Icons.Edit3 className="w-4 h-4" /></button>
                                                     </td>
                                                     <td className="p-3 border-r text-center">
                                                         <button onClick={() => { setSelectedBatch(batch); setShowStudentModal(true); }}
@@ -3156,394 +3165,416 @@
                     {
                         showCreateModal && (
                             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto font-sans">
-                                <div className="bg-white rounded-none w-full max-w-4xl my-8 shadow-2xl">
-                                    {/* Header */}
-                                    <div className="bg-gray-600 text-white px-6 py-4 flex items-center gap-2">
-                                        <Icons.BarChart2 className="w-5 h-5" />
-                                        <h3 className="font-medium text-lg">Add New Batch</h3>
-                                    </div>
-
-                                    <form onSubmit={handleCreateBatch} className="p-8">
-                                        <div className="grid grid-cols-2 gap-x-12 gap-y-6">
-                                            {/* Left Column */}
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Batch Name:</label>
-                                                    <div className="col-span-2">
-                                                        <input required className="w-full p-2 border border-gray-300 rounded text-sm placeholder-gray-400"
-                                                            placeholder="Batch Name"
-                                                            value={newBatch.name} onChange={e => setNewBatch({ ...newBatch, name: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-gray-700 mb-1">Sector Skill Council</label>
-                                                        <select className="w-full p-2 border border-gray-300 rounded text-sm"
-                                                            value={newBatch.sscId} onChange={e => setNewBatch({ ...newBatch, sscId: e.target.value, qpId: '' })}>
-                                                            <option value="">Select Sector</option>
-                                                            {sscList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-gray-700 mb-1">Qualification Pack</label>
-                                                        <select className="w-full p-2 border border-gray-300 rounded text-sm"
-                                                            value={newBatch.qpId} onChange={e => setNewBatch({ ...newBatch, qpId: e.target.value })}>
-                                                            <option value="">Select QP</option>
-                                                            {qpList.filter(q => !newBatch.sscId || q.sscId === newBatch.sscId).map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                </div>
-
+                                <div className="bg-white rounded-xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <h3 className="text-2xl font-bold mb-6 text-gray-800">{newBatch.id ? 'Edit Batch' : 'Add New Batch'}</h3>
+                                    <form onSubmit={handleCreateBatch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        <div className="col-span-1 md:col-span-2 lg:col-span-3 pb-4 border-b mb-2">
+                                            <h4 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-4">Project Details</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                 <div>
-                                                    <label className="block text-xs font-bold text-gray-700 mb-1">Project Name <span className="text-red-500">*</span></label>
-                                                    <div className="flex gap-2">
-                                                        {showNewProjectInput ? (
-                                                            <input className="w-full p-2 border border-gray-300 rounded text-sm"
-                                                                placeholder="Enter Project Name"
-                                                                value={newBatch.project} onChange={e => setNewBatch({ ...newBatch, project: e.target.value })}
-                                                                onBlur={() => !newBatch.project && setShowNewProjectInput(false)}
-                                                                autoFocus
-                                                            />
-                                                        ) : (
-                                                            <select className="flex-1 p-2 border border-gray-300 rounded text-sm bg-white"
-                                                                value={newBatch.project} onChange={e => setNewBatch({ ...newBatch, project: e.target.value })}
-                                                            >
-                                                                <option value="">Select Project</option>
-                                                                {projects.map(p => <option key={p} value={p}>{p}</option>)}
-                                                            </select>
-                                                        )}
-
-                                                        {!showNewProjectInput && (
-                                                            <button type="button" onClick={() => setShowNewProjectInput(true)}
-                                                                className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 whitespace-nowrap flex items-center gap-1">
-                                                                <Icons.Plus className="w-3 h-3" /> New Project
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Training Centre :</label>
-                                                    <div className="col-span-2">
-                                                        <select className="w-full p-2 border border-gray-300 rounded text-sm bg-white"
-                                                            value={newBatch.trainingCentre} onChange={handleTCSelection}
-                                                        >
-                                                            <option value="">Select Training Centre</option>
-                                                            {trainingCentres.map(tc => <option key={tc.id} value={tc.name}>{tc.name}</option>)}
+                                                    <label className="block text-sm font-bold text-gray-700 mb-1">Project Name</label>
+                                                    {showNewProjectInput ? (
+                                                        <div className="flex gap-2">
+                                                            <input type="text" className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition-colors outline-none focus:ring-2 focus:ring-blue-500"
+                                                                placeholder="Enter new project name"
+                                                                value={newBatch.project} onChange={e => setNewBatch({ ...newBatch, project: e.target.value })} autoFocus />
+                                                            <button type="button" onClick={() => setShowNewProjectInput(false)} className="text-gray-500 hover:text-red-500"><Icons.XCircle /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <select className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition-colors outline-none focus:ring-2 focus:ring-blue-500"
+                                                            value={newBatch.project} onChange={e => {
+                                                                if (e.target.value === 'NEW') setShowNewProjectInput(true);
+                                                                else setNewBatch({ ...newBatch, project: e.target.value });
+                                                            }}>
+                                                            <option value="">Select Project</option>
+                                                            {projects.map(p => <option key={p} value={p}>{p}</option>)}
+                                                            <option value="NEW" className="font-bold text-blue-600">+ Add New Project</option>
                                                         </select>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">State:</label>
-                                                    <div className="col-span-2">
-                                                        <input readOnly className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500"
-                                                            value={newBatch.state}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Spoc Contact No:</label>
-                                                    <div className="col-span-2">
-                                                        <input className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400"
-                                                            placeholder="Center Contact No"
-                                                            value={newBatch.spocContactNo} onChange={e => setNewBatch({ ...newBatch, spocContactNo: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-start pt-2">
-                                                    <label className="text-xs font-bold text-gray-700 mt-1">Center Address:</label>
-                                                    <div className="col-span-2">
-                                                        <textarea rows="3" className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400 resize-none"
-                                                            placeholder="Center Address"
-                                                            value={newBatch.centerAddress} onChange={e => setNewBatch({ ...newBatch, centerAddress: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Assessment Start Date :</label>
-                                                    <div className="col-span-2 relative">
-                                                        <input type="date" required className="w-full p-2 border border-gray-300 rounded text-sm text-gray-500"
-                                                            value={newBatch.startDate ? newBatch.startDate.split('T')[0] : ''}
-                                                            onChange={e => setNewBatch({ ...newBatch, startDate: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Assessment End Date :</label>
-                                                    <div className="col-span-2 relative">
-                                                        <input type="date" required className="w-full p-2 border border-gray-300 rounded text-sm text-gray-500"
-                                                            value={newBatch.endDate}
-                                                            onChange={e => setNewBatch({ ...newBatch, endDate: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Login Restrict Count:</label>
-                                                    <div className="col-span-2">
-                                                        <input type="number" className="w-full p-2 border border-gray-300 rounded text-sm"
-                                                            value={newBatch.loginRestrictCount} onChange={e => setNewBatch({ ...newBatch, loginRestrictCount: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Mode Of Assessment :</label>
-                                                    <div className="col-span-2">
-                                                        <select className="w-full p-2 border border-gray-300 rounded text-sm bg-white"
-                                                            value={newBatch.modeOfAssessment} onChange={e => setNewBatch({ ...newBatch, modeOfAssessment: e.target.value })}
-                                                        >
-                                                            <option value="">--Select--</option>
-                                                            {assessmentModes.map(m => <option key={m} value={m}>{m}</option>)}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Right Column */}
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Batch Size:</label>
-                                                    <div className="col-span-2">
-                                                        <input className="w-full p-2 border border-gray-300 rounded text-sm placeholder-gray-400"
-                                                            placeholder="Batch Size"
-                                                            value={newBatch.batchSize} onChange={e => setNewBatch({ ...newBatch, batchSize: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Center ID :</label>
-                                                    <div className="col-span-2">
-                                                        <input readOnly className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500 placeholder-gray-400"
-                                                            placeholder="Center ID"
-                                                            value={newBatch.centerId}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">District:</label>
-                                                    <div className="col-span-2">
-                                                        <input readOnly className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500"
-                                                            value={newBatch.district}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Spoc EmailID:</label>
-                                                    <div className="col-span-2">
-                                                        <input className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400"
-                                                            placeholder="Center EmailID"
-                                                            value={newBatch.spocEmail} onChange={e => setNewBatch({ ...newBatch, spocEmail: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">T.P Name:</label>
-                                                    <div className="col-span-2">
-                                                        <input className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400"
-                                                            placeholder="Training Partner Name"
-                                                            value={newBatch.tpName} onChange={e => setNewBatch({ ...newBatch, tpName: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">Start Time:</label>
-                                                    <div className="col-span-2 flex gap-2">
-                                                        <input type="time" className="flex-1 p-2 border border-gray-300 rounded text-sm text-gray-500"
-                                                            value={newBatch.startTime} onChange={e => setNewBatch({ ...newBatch, startTime: e.target.value })}
-                                                        />
-                                                        <select className="p-2 border border-gray-300 rounded text-sm bg-white">
-                                                            <option>AM</option>
-                                                            <option>PM</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="text-xs font-bold text-gray-700">End Time:</label>
-                                                    <div className="col-span-2 flex gap-2">
-                                                        <input type="time" className="flex-1 p-2 border border-gray-300 rounded text-sm text-gray-500"
-                                                            value={newBatch.endTime} onChange={e => setNewBatch({ ...newBatch, endTime: e.target.value })}
-                                                        />
-                                                        <select className="p-2 border border-gray-300 rounded text-sm bg-white">
-                                                            <option>PM</option>
-                                                            <option>AM</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 items-center">
-                                                    <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer select-none">
-                                                        <input type="checkbox" className="w-4 h-4 text-blue-600 rounded"
-                                                            checked={newBatch.captureImage} onChange={e => setNewBatch({ ...newBatch, captureImage: e.target.checked })}
-                                                        />
-                                                        Capture Image
-                                                    </label>
-                                                    <div className="col-span-2">
-                                                        <input className="w-full p-2 border border-gray-300 rounded text-sm placeholder-gray-400"
-                                                            placeholder="Camera Interval in Seconds."
-                                                            value={newBatch.cameraInterval} onChange={e => setNewBatch({ ...newBatch, cameraInterval: e.target.value })}
-                                                            disabled={!newBatch.captureImage}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Footer */}
-                                        <div className="flex gap-4 justify-start pt-8 mt-4">
-                                            <button type="submit" className="px-8 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 shadow-sm">Save</button>
-                                            <button type="button" onClick={() => setShowCreateModal(false)} className="px-6 py-2 bg-white text-gray-600 hover:bg-gray-50 rounded text-sm font-medium border border-gray-300">Cancel</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        )
-                    }
-
-                    {
-                        showAssignModal && (
-                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                                <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                                    <h3 className="text-xl font-bold mb-4">Assign {assignmentType} QP</h3>
-                                    <div className="space-y-4">
-                                        <p className="text-gray-600">Assigning to batch: <span className="font-bold">{selectedBatch?.name}</span></p>
-
-                                        {/* Modal Filters */}
-                                        <div className="space-y-4 mb-4 bg-gray-50 p-3 rounded">
-                                            <div>
-                                                <label className="text-xs font-bold text-gray-700 block mb-1">Sector Skill Council</label>
-                                                <select className="w-full p-2 border rounded text-sm" value={assignSSC} onChange={e => { setAssignSSC(e.target.value); setAssignQPDef(''); setSelectedAssignQP(''); }}>
-                                                    <option value="">Select SSC</option>
-                                                    {sscList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-bold text-gray-700 block mb-1">Qualification Pack</label>
-                                                <select className="w-full p-2 border rounded text-sm" value={assignQPDef} onChange={e => { setAssignQPDef(e.target.value); setSelectedAssignQP(''); }}>
-                                                    <option value="">Select QP</option>
-                                                    {(() => {
-                                                        const uniqueCodes = new Set();
-                                                        return qpList.filter(q => {
-                                                            if (!assignSSC || q.sscId === assignSSC) {
-                                                                const code = (q.code || '').trim().toLowerCase();
-                                                                if (uniqueCodes.has(code)) return false;
-                                                                uniqueCodes.add(code);
-                                                                return true;
-                                                            }
-                                                            return false;
-                                                        }).map(q => <option key={q.id} value={q.id}>{q.name} ({q.code})</option>);
-                                                    })()}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <label className="text-xs font-bold text-gray-700 block mb-1">Select Question Paper</label>
-                                        <select className="w-full px-4 py-2 border rounded mb-4" value={selectedAssignQP} onChange={e => setSelectedAssignQP(e.target.value)}>
-                                            <option value="">Select Question Paper</option>
-                                            {questionPapers.filter(qp => (!assignSSC || qp.sscId === assignSSC) && (!assignQPDef || qp.qpId === assignQPDef)).map(qp => <option key={qp.id} value={qp.id}>{qp.qpName}</option>)}
-                                        </select>
-                                        <div className="flex gap-2">
-                                            <button onClick={handleAssignQP} className="flex-1 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">Assign</button>
-                                            <button onClick={() => setShowAssignModal(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded hover:bg-gray-200">Cancel</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    }
-
-                    {
-                        showStudentModal && (
-                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-                                <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl my-8">
-                                    <div className="bg-gray-100 px-6 py-4 flex justify-between items-center border-b">
-                                        <h3 className="text-xl font-bold text-gray-800">Students</h3>
-                                        <button onClick={() => setShowStudentModal(false)} className="text-gray-500 hover:text-red-500">
-                                            <Icons.XCircle className="w-6 h-6" />
-                                        </button>
-                                    </div>
-
-                                    <div className="p-8">
-                                        <div className="grid grid-cols-[200px_1fr] gap-4 mb-6">
-                                            <div className="font-bold text-gray-700 text-right">Sector Skill Council :</div>
-                                            <div className="text-gray-600">{sscList.find(s => s.id === selectedBatch?.sscId)?.name || 'Apparel'}</div>
-
-                                            <div className="font-bold text-gray-700 text-right">Qualification Pack :</div>
-                                            <div className="text-gray-600">{qpList.find(q => q.id === selectedBatch?.theoryPaperId)?.name || 'Advanced Course for Stylist'}</div>
-                                        </div>
-
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div className="flex items-center gap-2 text-gray-700 font-medium">
-                                                <Icons.Users className="w-5 h-5 text-blue-500" />
-                                                <span>Total Records : {selectedBatch ? window.Utils.getStudentsByBatch(selectedBatch.id).length : 0}</span>
-                                            </div>
-                                            <div className="bg-gray-100 p-2 rounded border border-dashed border-gray-300 flex items-center gap-2">
-                                                <span className="text-xs font-bold text-gray-500">Add Students:</span>
-                                                <input type="file" accept=".xlsx, .xls" onChange={handleStudentUpload} className="text-xs" />
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white border rounded shadow-sm overflow-hidden">
-                                            <table className="w-full text-left">
-                                                <thead className="bg-gray-50 border-b">
-                                                    <tr>
-                                                        <th className="p-3 font-bold text-gray-700 border-r w-24">Photo</th>
-                                                        <th className="p-3 font-bold text-gray-700 border-r">Enrollment No</th>
-                                                        <th className="p-3 font-bold text-gray-700 border-r">User Name</th>
-                                                        <th className="p-3 font-bold text-gray-700 border-r">Student Name</th>
-                                                        <th className="p-3 font-bold text-gray-700 w-24 text-center">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y">
-                                                    {selectedBatch && window.Utils.getStudentsByBatch(selectedBatch.id).map((student, idx) => (
-                                                        <tr key={student.id} className="hover:bg-gray-50">
-                                                            <td className="p-3 border-r text-center">
-                                                                <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500 mx-auto">
-                                                                    No Image
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-3 border-r text-gray-700">{student.enrollmentNo || student.username}</td>
-                                                            <td className="p-3 border-r text-gray-700">{student.username}</td>
-                                                            <td className="p-3 border-r text-gray-700">{student.name}</td>
-                                                            <td className="p-3 text-center">
-                                                                <button onClick={() => { if (confirm('Delete?')) { window.Utils.deleteStudent(student.id); setSelectedBatch({ ...selectedBatch }); window.Utils.uploadToCloud(true); } }}
-                                                                    className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-full transition-colors" title="Delete Student">
-                                                                    <Icons.Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                                <button onClick={() => setVivaSession({ batch: selectedBatch, student: student })}
-                                                                    className="ml-2 bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200 transition-colors flex items-center gap-1" title="Start Live Viva">
-                                                                    <Icons.Video className="w-3 h-3" /> Live Viva
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                    {(!selectedBatch || window.Utils.getStudentsByBatch(selectedBatch.id).length === 0) && (
-                                                        <tr>
-                                                            <td colSpan="5" className="p-8 text-center text-gray-400">No students found in this batch.</td>
-                                                        </tr>
                                                     )}
-                                                </tbody>
-                                            </table>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-gray-700 mb-1">Batch Name</label>
+                                                    <input type="text" required className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition-colors outline-none focus:ring-2 focus:ring-blue-500"
+                                                        value={newBatch.name} onChange={e => setNewBatch({ ...newBatch, name: e.target.value })} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-gray-700 mb-1">Training Partner Name</label>
+                                                    <input type="text" required className="w-full p-3 border rounded-lg bg-gray-50 focus:bg-white transition-colors outline-none focus:ring-2 focus:ring-blue-500"
+                                                        value={newBatch.tpName} onChange={e => setNewBatch({ ...newBatch, tpName: e.target.value })} />
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                        {/* Left Column */}
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1">Sector Skill Council</label>
+                                                    <select className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                        value={newBatch.sscId} onChange={e => setNewBatch({ ...newBatch, sscId: e.target.value, qpId: '' })}>
+                                                        <option value="">Select Sector</option>
+                                                        {sscList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1">Qualification Pack</label>
+                                                    <select className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                        value={newBatch.qpId} onChange={e => setNewBatch({ ...newBatch, qpId: e.target.value })}>
+                                                        <option value="">Select QP</option>
+                                                        {qpList.filter(q => !newBatch.sscId || q.sscId === newBatch.sscId).map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-700 mb-1">Project Name <span className="text-red-500">*</span></label>
+                                                <div className="flex gap-2">
+                                                    {showNewProjectInput ? (
+                                                        <input className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                            placeholder="Enter Project Name"
+                                                            value={newBatch.project} onChange={e => setNewBatch({ ...newBatch, project: e.target.value })}
+                                                            onBlur={() => !newBatch.project && setShowNewProjectInput(false)}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <select className="flex-1 p-2 border border-gray-300 rounded text-sm bg-white"
+                                                            value={newBatch.project} onChange={e => setNewBatch({ ...newBatch, project: e.target.value })}
+                                                        >
+                                                            <option value="">Select Project</option>
+                                                            {projects.map(p => <option key={p} value={p}>{p}</option>)}
+                                                        </select>
+                                                    )}
+
+                                                    {!showNewProjectInput && (
+                                                        <button type="button" onClick={() => setShowNewProjectInput(true)}
+                                                            className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 whitespace-nowrap flex items-center gap-1">
+                                                            <Icons.Plus className="w-3 h-3" /> New Project
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Training Centre :</label>
+                                                <div className="col-span-2">
+                                                    <select className="w-full p-2 border border-gray-300 rounded text-sm bg-white"
+                                                        value={newBatch.trainingCentre} onChange={handleTCSelection}
+                                                    >
+                                                        <option value="">Select Training Centre</option>
+                                                        {trainingCentres.map(tc => <option key={tc.id} value={tc.name}>{tc.name}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">State:</label>
+                                                <div className="col-span-2">
+                                                    <input readOnly className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500"
+                                                        value={newBatch.state}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Spoc Contact No:</label>
+                                                <div className="col-span-2">
+                                                    <input className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400"
+                                                        placeholder="Center Contact No"
+                                                        value={newBatch.spocContactNo} onChange={e => setNewBatch({ ...newBatch, spocContactNo: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-start pt-2">
+                                                <label className="text-xs font-bold text-gray-700 mt-1">Center Address:</label>
+                                                <div className="col-span-2">
+                                                    <textarea rows="3" className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400 resize-none"
+                                                        placeholder="Center Address"
+                                                        value={newBatch.centerAddress} onChange={e => setNewBatch({ ...newBatch, centerAddress: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Assessment Start Date :</label>
+                                                <div className="col-span-2 relative">
+                                                    <input type="date" required className="w-full p-2 border border-gray-300 rounded text-sm text-gray-500"
+                                                        value={newBatch.startDate ? newBatch.startDate.split('T')[0] : ''}
+                                                        onChange={e => setNewBatch({ ...newBatch, startDate: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Assessment End Date :</label>
+                                                <div className="col-span-2 relative">
+                                                    <input type="date" required className="w-full p-2 border border-gray-300 rounded text-sm text-gray-500"
+                                                        value={newBatch.endDate}
+                                                        onChange={e => setNewBatch({ ...newBatch, endDate: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Login Restrict Count:</label>
+                                                <div className="col-span-2">
+                                                    <input type="number" className="w-full p-2 border border-gray-300 rounded text-sm"
+                                                        value={newBatch.loginRestrictCount} onChange={e => setNewBatch({ ...newBatch, loginRestrictCount: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Mode Of Assessment :</label>
+                                                <div className="col-span-2">
+                                                    <select className="w-full p-2 border border-gray-300 rounded text-sm bg-white"
+                                                        value={newBatch.modeOfAssessment} onChange={e => setNewBatch({ ...newBatch, modeOfAssessment: e.target.value })}
+                                                    >
+                                                        <option value="">--Select--</option>
+                                                        {assessmentModes.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Right Column */}
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Batch Size:</label>
+                                                <div className="col-span-2">
+                                                    <input className="w-full p-2 border border-gray-300 rounded text-sm placeholder-gray-400"
+                                                        placeholder="Batch Size"
+                                                        value={newBatch.batchSize} onChange={e => setNewBatch({ ...newBatch, batchSize: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Center ID :</label>
+                                                <div className="col-span-2">
+                                                    <input readOnly className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500 placeholder-gray-400"
+                                                        placeholder="Center ID"
+                                                        value={newBatch.centerId}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">District:</label>
+                                                <div className="col-span-2">
+                                                    <input readOnly className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500"
+                                                        value={newBatch.district}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Spoc EmailID:</label>
+                                                <div className="col-span-2">
+                                                    <input className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400"
+                                                        placeholder="Center EmailID"
+                                                        value={newBatch.spocEmail} onChange={e => setNewBatch({ ...newBatch, spocEmail: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">T.P Name:</label>
+                                                <div className="col-span-2">
+                                                    <input className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100 placeholder-gray-400"
+                                                        placeholder="Training Partner Name"
+                                                        value={newBatch.tpName} onChange={e => setNewBatch({ ...newBatch, tpName: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">Start Time:</label>
+                                                <div className="col-span-2 flex gap-2">
+                                                    <input type="time" className="flex-1 p-2 border border-gray-300 rounded text-sm text-gray-500"
+                                                        value={newBatch.startTime} onChange={e => setNewBatch({ ...newBatch, startTime: e.target.value })}
+                                                    />
+                                                    <select className="p-2 border border-gray-300 rounded text-sm bg-white">
+                                                        <option>AM</option>
+                                                        <option>PM</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="text-xs font-bold text-gray-700">End Time:</label>
+                                                <div className="col-span-2 flex gap-2">
+                                                    <input type="time" className="flex-1 p-2 border border-gray-300 rounded text-sm text-gray-500"
+                                                        value={newBatch.endTime} onChange={e => setNewBatch({ ...newBatch, endTime: e.target.value })}
+                                                    />
+                                                    <select className="p-2 border border-gray-300 rounded text-sm bg-white">
+                                                        <option>PM</option>
+                                                        <option>AM</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 items-center">
+                                                <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer select-none">
+                                                    <input type="checkbox" className="w-4 h-4 text-blue-600 rounded"
+                                                        checked={newBatch.captureImage} onChange={e => setNewBatch({ ...newBatch, captureImage: e.target.checked })}
+                                                    />
+                                                    Capture Image
+                                                </label>
+                                                <div className="col-span-2">
+                                                    <input className="w-full p-2 border border-gray-300 rounded text-sm placeholder-gray-400"
+                                                        placeholder="Camera Interval in Seconds."
+                                                        value={newBatch.cameraInterval} onChange={e => setNewBatch({ ...newBatch, cameraInterval: e.target.value })}
+                                                        disabled={!newBatch.captureImage}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                 </div>
-                            </div>
+
+                                {/* Footer */}
+                                <div className="flex gap-4 justify-start pt-8 mt-4">
+                                    <button type="submit" className="px-8 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 shadow-sm">
+                                        {newBatch.id ? 'Update Batch' : 'Create Batch'}
+                                    </button>
+                                    <button type="button" onClick={() => setShowCreateModal(false)} className="px-6 py-2 bg-white text-gray-600 hover:bg-gray-50 rounded text-sm font-medium border border-gray-300">Cancel</button>
+                                </div>
+                            </form>
+                                </div>
+                            </div >
                         )
                     }
-                    {vivaSession && <VivaLobby batch={vivaSession.batch} onClose={() => setVivaSession(null)} />}
+
+        {
+            showAssignModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md">
+                        <h3 className="text-xl font-bold mb-4">Assign {assignmentType} QP</h3>
+                        <div className="space-y-4">
+                            <p className="text-gray-600">Assigning to batch: <span className="font-bold">{selectedBatch?.name}</span></p>
+
+                            {/* Modal Filters */}
+                            <div className="space-y-4 mb-4 bg-gray-50 p-3 rounded">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-700 block mb-1">Sector Skill Council</label>
+                                    <select className="w-full p-2 border rounded text-sm" value={assignSSC} onChange={e => { setAssignSSC(e.target.value); setAssignQPDef(''); setSelectedAssignQP(''); }}>
+                                        <option value="">Select SSC</option>
+                                        {sscList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-700 block mb-1">Qualification Pack</label>
+                                    <select className="w-full p-2 border rounded text-sm" value={assignQPDef} onChange={e => { setAssignQPDef(e.target.value); setSelectedAssignQP(''); }}>
+                                        <option value="">Select QP</option>
+                                        {(() => {
+                                            const uniqueCodes = new Set();
+                                            return qpList.filter(q => {
+                                                if (!assignSSC || q.sscId === assignSSC) {
+                                                    const code = (q.code || '').trim().toLowerCase();
+                                                    if (uniqueCodes.has(code)) return false;
+                                                    uniqueCodes.add(code);
+                                                    return true;
+                                                }
+                                                return false;
+                                            }).map(q => <option key={q.id} value={q.id}>{q.name} ({q.code})</option>);
+                                        })()}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <label className="text-xs font-bold text-gray-700 block mb-1">Select Question Paper</label>
+                            <select className="w-full px-4 py-2 border rounded mb-4" value={selectedAssignQP} onChange={e => setSelectedAssignQP(e.target.value)}>
+                                <option value="">Select Question Paper</option>
+                                {questionPapers.filter(qp => (!assignSSC || qp.sscId === assignSSC) && (!assignQPDef || qp.qpId === assignQPDef)).map(qp => <option key={qp.id} value={qp.id}>{qp.qpName}</option>)}
+                            </select>
+                            <div className="flex gap-2">
+                                <button onClick={handleAssignQP} className="flex-1 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">Assign</button>
+                                <button onClick={() => setShowAssignModal(false)} className="flex-1 bg-gray-100 text-gray-600 py-2 rounded hover:bg-gray-200">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        {
+            showStudentModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl my-8">
+                        <div className="bg-gray-100 px-6 py-4 flex justify-between items-center border-b">
+                            <h3 className="text-xl font-bold text-gray-800">Students</h3>
+                            <button onClick={() => setShowStudentModal(false)} className="text-gray-500 hover:text-red-500">
+                                <Icons.XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-8">
+                            <div className="grid grid-cols-[200px_1fr] gap-4 mb-6">
+                                <div className="font-bold text-gray-700 text-right">Sector Skill Council :</div>
+                                <div className="text-gray-600">{sscList.find(s => s.id === selectedBatch?.sscId)?.name || 'Apparel'}</div>
+
+                                <div className="font-bold text-gray-700 text-right">Qualification Pack :</div>
+                                <div className="text-gray-600">{qpList.find(q => q.id === selectedBatch?.theoryPaperId)?.name || 'Advanced Course for Stylist'}</div>
+                            </div>
+
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-2 text-gray-700 font-medium">
+                                    <Icons.Users className="w-5 h-5 text-blue-500" />
+                                    <span>Total Records : {selectedBatch ? window.Utils.getStudentsByBatch(selectedBatch.id).length : 0}</span>
+                                </div>
+                                <div className="bg-gray-100 p-2 rounded border border-dashed border-gray-300 flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-500">Add Students:</span>
+                                    <input type="file" accept=".xlsx, .xls" onChange={handleStudentUpload} className="text-xs" />
+                                </div>
+                            </div>
+
+                            <div className="bg-white border rounded shadow-sm overflow-hidden">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50 border-b">
+                                        <tr>
+                                            <th className="p-3 font-bold text-gray-700 border-r w-24">Photo</th>
+                                            <th className="p-3 font-bold text-gray-700 border-r">Enrollment No</th>
+                                            <th className="p-3 font-bold text-gray-700 border-r">User Name</th>
+                                            <th className="p-3 font-bold text-gray-700 border-r">Student Name</th>
+                                            <th className="p-3 font-bold text-gray-700 w-24 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {selectedBatch && window.Utils.getStudentsByBatch(selectedBatch.id).map((student, idx) => (
+                                            <tr key={student.id} className="hover:bg-gray-50">
+                                                <td className="p-3 border-r text-center">
+                                                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500 mx-auto">
+                                                        No Image
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 border-r text-gray-700">{student.enrollmentNo || student.username}</td>
+                                                <td className="p-3 border-r text-gray-700">{student.username}</td>
+                                                <td className="p-3 border-r text-gray-700">{student.name}</td>
+                                                <td className="p-3 text-center">
+                                                    <button onClick={() => { if (confirm('Delete?')) { window.Utils.deleteStudent(student.id); setSelectedBatch({ ...selectedBatch }); window.Utils.uploadToCloud(true); } }}
+                                                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-full transition-colors" title="Delete Student">
+                                                        <Icons.Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => setVivaSession({ batch: selectedBatch, student: student })}
+                                                        className="ml-2 bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200 transition-colors flex items-center gap-1" title="Start Live Viva">
+                                                        <Icons.Video className="w-3 h-3" /> Live Viva
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {(!selectedBatch || window.Utils.getStudentsByBatch(selectedBatch.id).length === 0) && (
+                                            <tr>
+                                                <td colSpan="5" className="p-8 text-center text-gray-400">No students found in this batch.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+        { vivaSession && <VivaLobby batch={vivaSession.batch} onClose={() => setVivaSession(null)} /> }
                 </div >
             );
         };
