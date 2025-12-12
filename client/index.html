@@ -5202,15 +5202,41 @@
                 // Strict Time Window Check
                 if (batch.startDate && batch.startTime && batch.endDate && batch.endTime) {
                     const now = new Date();
-                    const start = new Date(`${batch.startDate}T${batch.startTime}`);
-                    const end = new Date(`${batch.endDate}T${batch.endTime}`);
+
+                    // Helper to parse potential DD/MM/YYYY or YYYY-MM-DD
+                    const parseDateTime = (dateStr, timeStr) => {
+                        let d = new Date(`${dateStr}T${timeStr}`);
+                        if (isNaN(d.getTime())) {
+                            // Try parsing DD/MM/YYYY manually
+                            if (dateStr.includes('/')) {
+                                const parts = dateStr.split('/');
+                                if (parts.length === 3) {
+                                    // Assume DD/MM/YYYY
+                                    d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeStr}`);
+                                }
+                            }
+                        }
+                        return d;
+                    };
+
+                    const start = parseDateTime(batch.startDate, batch.startTime);
+                    const end = parseDateTime(batch.endDate, batch.endTime);
+
+                    console.log("[ExamCheck] Now:", now);
+                    console.log("[ExamCheck] Start:", start, "Raw:", batch.startDate, batch.startTime);
+                    console.log("[ExamCheck] End:", end, "Raw:", batch.endDate, batch.endTime);
+
+                    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                        alert(`Date Error: Could not parse dates.\nStart: ${batch.startDate}\nEnd: ${batch.endDate}`);
+                        return;
+                    }
 
                     if (now < start) {
-                        alert(`Exam has not started yet.\nStart Time: ${start.toLocaleString()}`);
+                        alert(`Exam has not started yet.\n\nCurrent Time: ${now.toLocaleString()}\nStart Time: ${start.toLocaleString()}`);
                         return;
                     }
                     if (now > end) {
-                        alert(`Exam has expired.\nEnd Time: ${end.toLocaleString()}`);
+                        alert(`Exam has expired.\n\nCurrent Time: ${now.toLocaleString()}\nEnd Time: ${end.toLocaleString()}\nRaw End: ${batch.endDate} ${batch.endTime}`);
                         return;
                     }
                 }
